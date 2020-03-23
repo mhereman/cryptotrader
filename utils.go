@@ -12,45 +12,52 @@ import (
 	"github.com/mhereman/cryptotrader/logger"
 )
 
-func ReadFlags() (assetCfg AssetConfig, exchangeCfg ExchangeConfig, algoConfig AlgorithmConfig, tradeConfig TradeConfig, err error) {
-	var b, q, tf, e, ea, a, ac, tvt, ll *string
-	var v *float64
-	var r, p *bool
+func ReadFlags() (assetCfg AssetConfig, exchangeCfg ExchangeConfig, algoConfig AlgorithmConfig, tradeConfig TradeConfig, notifierConfig NotifierConfig, err error) {
+	var base, quote, timeFrame, exchange, exchangeArgsString, algo, algoConfigString, tradeType, logLevel, notifier, notifierConfigString *string
+	var volume *float64
+	var reduce, paperTrading *bool
 
-	b = flag.String("base", "btc", "Base asset to trade")
-	q = flag.String("quote", "usdt", "Quote asset to trade")
-	tf = flag.String("timeframe", "4h", "Timeframe to trade, unit in ['s', 'm', 'h', 'd', 'w', 'M']")
+	base = flag.String("base", "btc", "Base asset to trade")
+	quote = flag.String("quote", "usdt", "Quote asset to trade")
+	timeFrame = flag.String("timeframe", "4h", "Timeframe to trade, unit in ['s', 'm', 'h', 'd', 'w', 'M']")
 
-	e = flag.String("exchange", "binance", "Exchange to trade on, valid exchanges: ['binance']")
-	ea = flag.String("exchangeargs", "apiKey=abc;apiSecret=def", "Exchange arguments, e.g. apiKey, apiSecret, ...")
+	exchange = flag.String("exchange", "binance", "Exchange to trade on, valid exchanges: ['binance']")
+	exchangeArgsString = flag.String("exchangeargs", "apiKey=abc;apiSecret=def", "Exchange arguments, e.g. apiKey, apiSecret, ...")
 
-	a = flag.String("algo", "Ema/Sma", "Algorithm to trade, valid algorithms: ['Ema/Sma']")
-	ac = flag.String("algoargs", "Key=value;Key2=value2", "Algorithm arguments")
+	algo = flag.String("algo", "Ema/Sma", "Algorithm to trade, valid algorithms: ['Ema/Sma']")
+	algoConfigString = flag.String("algoargs", "Key=value;Key2=value2", "Algorithm arguments")
 
-	tvt = flag.String("tradetype", "pct", "How to calculate trade volume, valid: ['pct', 'fixed']")
-	v = flag.Float64("volume", 1.0, "Trade volume. If tradetype = pct, the volume is the percentage of the availabel quote asset, otherwise the fixed volume of the trade asset.")
-	r = flag.Bool("reduce", true, "Reduce the trade volume if not sufficient funds are available")
-	p = flag.Bool("papertrading", false, "Papertrading enabled or not")
+	tradeType = flag.String("tradetype", "pct", "How to calculate trade volume, valid: ['pct', 'fixed']")
+	volume = flag.Float64("volume", 1.0, "Trade volume. If tradetype = pct, the volume is the percentage of the availabel quote asset, otherwise the fixed volume of the trade asset.")
+	reduce = flag.Bool("reduce", true, "Reduce the trade volume if not sufficient funds are available")
+	paperTrading = flag.Bool("papertrading", false, "Papertrading enabled or not")
 
-	ll = flag.String("loglevel", "info", "Log leve to use, valid (most verbose to less): ['debug', 'error', warning', 'info', 'none'")
+	logLevel = flag.String("loglevel", "info", "Log leve to use, valid (most verbose to less): ['debug', 'error', warning', 'info', 'none'")
+
+	notifier = flag.String("notifier", "", "If set, the notifier service to use, valid notifiers: ['', 'proximus-sms']")
+	notifierConfigString = flag.String("notifierargs", "Key=value;key2=value", "Notifier arguments")
 
 	flag.Parse()
 
-	logger.SetLogLevel(logger.NewLogLevelFromString(*ll))
+	logger.SetLogLevel(logger.NewLogLevelFromString(*logLevel))
 
-	if assetCfg, err = NewAssetConfigFromFlags(*b, *q, *tf); err != nil {
+	if assetCfg, err = NewAssetConfigFromFlags(*base, *quote, *timeFrame); err != nil {
 		return
 	}
 
-	if exchangeCfg, err = NewExchangeConfigFromFlags(*e, buildArgMap(*ea)); err != nil {
+	if exchangeCfg, err = NewExchangeConfigFromFlags(*exchange, buildArgMap(*exchangeArgsString)); err != nil {
 		return
 	}
 
-	if algoConfig, err = NewAlgorithmConfigFromFlags(*a, buildArgMap(*ac)); err != nil {
+	if algoConfig, err = NewAlgorithmConfigFromFlags(*algo, buildArgMap(*algoConfigString)); err != nil {
 		return
 	}
 
-	if tradeConfig, err = NewTradeConfigFromFlags(*tvt, *v, *r, *p); err != nil {
+	if tradeConfig, err = NewTradeConfigFromFlags(*tradeType, *volume, *reduce, *paperTrading); err != nil {
+		return
+	}
+
+	if notifierConfig, err = NewNotifierConfigFromFlags(*notifier, buildArgMap(*notifierConfigString)); err != nil {
 		return
 	}
 	return

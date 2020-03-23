@@ -11,6 +11,7 @@ import (
 
 	"github.com/mhereman/cryptotrader/algorithms"
 	"github.com/mhereman/cryptotrader/logger"
+	"github.com/mhereman/cryptotrader/notifiers"
 
 	"github.com/mhereman/cryptotrader/exchange"
 
@@ -102,6 +103,17 @@ func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool
 	return
 }
 
+type NotifierConfig struct {
+	Name   string
+	ArgMap map[string]string
+}
+
+func NewNotifierConfigFromFlags(name string, args map[string]string) (nc NotifierConfig, err error) {
+	nc.Name = strings.ToLower(name)
+	nc.ArgMap = args
+	return
+}
+
 type CryptoTrader struct {
 	ctx            context.Context
 	cancelFn       context.CancelFunc
@@ -111,13 +123,15 @@ type CryptoTrader struct {
 	exchangeCfg    ExchangeConfig
 	algoCfg        AlgorithmConfig
 	tradeCfg       TradeConfig
+	notifierCfg    NotifierConfig
 	openTrades     map[string]string
 	exchangeDriver interfaces.IExchangeDriver
 	dataFetcher    interfaces.IDataFether
 	algorithm      interfaces.IAlgorithm
+	notifier       interfaces.INotifier
 }
 
-func New(assetConfig AssetConfig, exchangeConfig ExchangeConfig, algorithmConfig AlgorithmConfig, tradeConfig TradeConfig) (ct *CryptoTrader) {
+func New(assetConfig AssetConfig, exchangeConfig ExchangeConfig, algorithmConfig AlgorithmConfig, tradeConfig TradeConfig, notifierConfig NotifierConfig) (ct *CryptoTrader) {
 	ct = new(CryptoTrader)
 	ct.ctx, ct.cancelFn = context.WithCancel(context.Background())
 	ct.wg = &sync.WaitGroup{}
@@ -126,6 +140,7 @@ func New(assetConfig AssetConfig, exchangeConfig ExchangeConfig, algorithmConfig
 	ct.exchangeCfg = exchangeConfig
 	ct.algoCfg = algorithmConfig
 	ct.tradeCfg = tradeConfig
+	ct.notifierCfg = notifierConfig
 	ct.openTrades = make(map[string]string)
 	return
 }
@@ -163,6 +178,10 @@ func (ct *CryptoTrader) Run() (err error) {
 		return
 	}
 
+	if err = ct.initNotifier(); err != nil {
+		return
+	}
+
 	if accountInfo, err = ct.exchangeDriver.GetAccountInfo(ct.ctx); err != nil {
 		logger.Errorf("Failed to retrieve account info: %v\n", err)
 		return
@@ -185,8 +204,10 @@ func (ct *CryptoTrader) Run() (err error) {
 
 	if ct.tradeCfg.Paper {
 		logger.Infoln("Cryptotrader running in paper trading mode")
+		ct.notifier.Notify(ct.ctx, []byte("Cryptotrader running in paper trading mode"))
 	} else {
 		logger.Infoln("Cryptotrader running in live mode")
+		ct.notifier.Notify(ct.ctx, []byte("Cryptotrader running in live mode"))
 	}
 	logger.Infof(" . Symbol: %s[%s], Algorithm: %s, Ordersize: %s: %f", ct.assetCfg.Symbol.String(), ct.assetCfg.Timeframe.String(), ct.algoCfg.Name, ct.tradeCfg.TradeVolumeType.String(), ct.tradeCfg.Volume)
 	showDonations()
@@ -238,6 +259,20 @@ func (ct *CryptoTrader) initAlgorithm() (err error) {
 		return
 	}
 	logger.Infof("Algorithm '%s' initialized\n", ct.algoCfg.Name)
+	return
+}
+
+func (ct *CryptoTrader) initNotifier() (err error) {
+	if ct.notifierCfg.Name == "" {
+		ct.notifierCfg.Name = "noop"
+		ct.notifierCfg.ArgMap = make(map[string]string)
+	}
+
+	if ct.notifier, err = notifiers.GetNotifier(ct.ctx, ct.notifierCfg.Name, ct.notifierCfg.ArgMap); err != nil {
+		logger.Errorf("Error configuring notifier: %v\n", err)
+		return
+	}
+	logger.Infof("Notifier '%s' initialized\n", ct.notifierCfg.Name)
 	return
 }
 
@@ -304,6 +339,7 @@ func (ct *CryptoTrader) buyFixed(accountInfo types.AccountInfo, symbol types.Sym
 	if ct.tradeCfg.Paper {
 		ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
 		logger.Printf("PaperTrade: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbol.String(), baseQuantity, averagePrice, ct.openTrades[symbol.String()])
+		ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
 		return
 	}
 
@@ -314,6 +350,7 @@ func (ct *CryptoTrader) buyFixed(accountInfo types.AccountInfo, symbol types.Sym
 	}
 
 	ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
 
 	return
 }
@@ -342,6 +379,7 @@ func (ct *CryptoTrader) buyPercent(accountInfo types.AccountInfo, symbol types.S
 	if ct.tradeCfg.Paper {
 		ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
 		logger.Printf("PaperTrade: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbol.String(), baseQuantity, averagePrice, ct.openTrades[symbol.String()])
+		ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
 		return
 	}
 
@@ -352,6 +390,7 @@ func (ct *CryptoTrader) buyPercent(accountInfo types.AccountInfo, symbol types.S
 	}
 
 	ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
 
 	return
 }
@@ -378,12 +417,13 @@ func (ct *CryptoTrader) closePosition(accountInfo types.AccountInfo, symbol type
 		ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
 
 		if price, err = ct.exchangeDriver.Ticker(ct.ctx, symbol); err != nil {
-			logger.Errorf("ClosePosition: Failed to retrieve market price for symbol: %s %v\n", err)
+			logger.Errorf("ClosePosition: Failed to retrieve market price for symbol: %s %v\n", symbol.String(), err)
 			return
 		}
 
-		logger.Printf("PaperTrade: Sell %s [Market Price: %f; UUID: %s]", symbol.String(), baseQuantity, price, ct.openTrades[symbol.String()])
+		logger.Printf("PaperTrade: Sell %s [Market Price: %f; UUID: %s]", symbol.String(), price, ct.openTrades[symbol.String()])
 		delete(ct.openTrades, symbol.String())
+		ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Sell", symbol.String())))
 		return
 	}
 
@@ -415,6 +455,7 @@ func (ct *CryptoTrader) closePosition(accountInfo types.AccountInfo, symbol type
 	}
 
 	delete(ct.openTrades, symbol.String())
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Sell", symbol.String())))
 
 	return
 }

@@ -72,17 +72,34 @@ REDUCE='true'
 PAPER_TRADING='true'
 
 
+
+# Notifier Configuration
+########################
+
+# The notifier to enable
+# If empty string, no notifier is configured
+# At the moment only the Proximus SMS api is available as a notifier ('proximus-sms')
+# The configuration of the Proximus SMS api needs a 'apiToken' and 'destination' entry
+NOTIFIER=''
+
+# The configuration arguments for the notifier
+NOTIFIER_CONFIG=''
+
+
+
 # Run cryptotrader
 cryptotrader \
-    -loglevel ${LOGLEVEL} \
-    -exchange ${EXCHANGE} \
-    -exchangeargs "apiKey=${API_KEY};apiSecret=${API_SECRET}" \
-    -base ${BASE_ASSET} \
-    -quote ${QUOTE_ASSET} \
-    -timeframe ${TIME_FRAME} \
-    -algo ${ALGO} \
-    -algoargs ${ALGO_ARGS} \
-    -tradetype ${TRADE_TYPE} \
-    -volume ${VOLUME} \
-    -reduce ${REDUCE} \
-    -papertrading ${PAPER_TRADING}
+    -loglevel=${LOGLEVEL} \
+    -exchange=${EXCHANGE} \
+    -exchangeargs="apiKey=${API_KEY};apiSecret=${API_SECRET}" \
+    -base=${BASE_ASSET} \
+    -quote=${QUOTE_ASSET} \
+    -timeframe=${TIME_FRAME} \
+    -algo=${ALGO} \
+    -algoargs=${ALGO_ARGS} \
+    -tradetype=${TRADE_TYPE} \
+    -volume=${VOLUME} \
+    -reduce=${REDUCE} \
+    -papertrading=${PAPER_TRADING} \
+    -notifier=${NOTIFIER} \
+    -notifierargs=${NOTIFIER_CONFIG}

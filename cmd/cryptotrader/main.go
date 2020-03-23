@@ -8,6 +8,8 @@ import (
 	_ "github.com/mhereman/cryptotrader/algorithms/emasmav1"
 	_ "github.com/mhereman/cryptotrader/exchange/binance"
 	"github.com/mhereman/cryptotrader/logger"
+	_ "github.com/mhereman/cryptotrader/notifiers/noop"
+	_ "github.com/mhereman/cryptotrader/notifiers/proximussms"
 )
 
 func main() {
@@ -15,10 +17,11 @@ func main() {
 	var exchangeCfg cryptotrader.ExchangeConfig
 	var algoCfg cryptotrader.AlgorithmConfig
 	var tradeCfg cryptotrader.TradeConfig
+	var notifierCfg cryptotrader.NotifierConfig
 	var trader *cryptotrader.CryptoTrader
 	var err error
 
-	if assetCfg, exchangeCfg, algoCfg, tradeCfg, err = cryptotrader.ReadFlags(); err != nil {
+	if assetCfg, exchangeCfg, algoCfg, tradeCfg, notifierCfg, err = cryptotrader.ReadFlags(); err != nil {
 		log.Fatalf("Error %v\n", err)
 	}
 
@@ -26,7 +29,7 @@ func main() {
 	logger.Debugf("API_SECRET: %s", exchangeCfg.ArgMap["apiSecret"])
 
 	logger.Infoln("Starting cryptotrader")
-	trader = cryptotrader.New(assetCfg, exchangeCfg, algoCfg, tradeCfg)
+	trader = cryptotrader.New(assetCfg, exchangeCfg, algoCfg, tradeCfg, notifierCfg)
 	if err = trader.Run(); err != nil {
 		logger.Fatalf("Error %v\n", err)
 	}

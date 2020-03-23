@@ -139,7 +139,7 @@ func (dc *DataFetcher) fetchData(ctx context.Context, symbol types.Symbol, timeF
 	var lastCandle types.OHLC
 
 	if series, err = dc.driver.GetSeries(ctx, symbol, timeFrame); err != nil {
-		logger.Errorf("DataCacher::fetchData Error %v\n")
+		logger.Errorf("DataCacher::fetchData Error %v\n", err)
 		return
 	}
 
