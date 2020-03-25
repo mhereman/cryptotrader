@@ -8,6 +8,7 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// GetSeries executes the get series request
 func (b Binance) GetSeries(ctx context.Context, symbol types.Symbol, timeframe types.Timeframe) (series types.Series, err error) {
 	var ks *bin.KlinesService
 	var binanceSymbol, binanceInterval string

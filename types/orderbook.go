@@ -1,29 +1,28 @@
 package types
 
-type OrderBookEntry struct {
-	Price    float64
-	Quantity float64
-}
-
-func NewOrderBookEntry(p, q float64) OrderBookEntry {
-	return OrderBookEntry{
-		Price:    p,
-		Quantity: q,
-	}
-}
-
+// OrderBook represents an assets orderbook on the exchange
 type OrderBook struct {
+	// Symbol of the order book
+	Symbol Symbol
+
+	// Bids on the order book
 	Bids []OrderBookEntry
+
+	// Asks on the order book
 	Asks []OrderBookEntry
 }
 
-func NewOrderBook(b, a []OrderBookEntry) OrderBook {
+// NewOrderBook creates a new OrderBook instance
+func NewOrderBook(symbol Symbol, bids []OrderBookEntry, asks []OrderBookEntry) OrderBook {
 	return OrderBook{
-		Bids: b,
-		Asks: a,
+		Symbol: symbol,
+		Bids:   bids,
+		Asks:   asks,
 	}
 }
 
+// GetBuyVolumeAndAveragePrice calculates the buy volume and average price in base asset from the
+// provided volume in quote asset
 func (ob OrderBook) GetBuyVolumeAndAveragePrice(quoteAmount float64) (baseAmount float64, averagePrice float64) {
 	var ask OrderBookEntry
 	var price, quantity, multipliedPrice float64

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/markcheno/go-talib"
 
@@ -35,6 +34,7 @@ func init() {
 	algorithms.RegisterAlgorithm(name, createAlgorithm)
 }
 
+// Algorithm represents the Ema/Sma algorithm
 type Algorithm struct {
 	smaLen        int
 	emaLen        int
@@ -44,6 +44,7 @@ type Algorithm struct {
 	signalChannel types.SignalChannel
 }
 
+// NewAlgorithm creates a new Ema/Sma algorithm
 func NewAlgorithm() (a *Algorithm, err error) {
 	a = new(Algorithm)
 	if err = a.configure(defaultConfig); err != nil {
@@ -58,14 +59,17 @@ func createAlgorithm() (algo interfaces.IAlgorithm, err error) {
 	return
 }
 
+// Name returns the name of the algorithm
 func (a Algorithm) Name() string {
 	return name
 }
 
+// DefaultConfig returns the default configuration of the algorithm
 func (a Algorithm) DefaultConfig() types.AlgorithmConfig {
 	return defaultConfig
 }
 
+// Config returns the current configuration of the algorithm
 func (a Algorithm) Config() types.AlgorithmConfig {
 	return types.AlgorithmConfig{
 		cfgSmaLen:    fmt.Sprintf("%d", a.smaLen),
@@ -75,6 +79,7 @@ func (a Algorithm) Config() types.AlgorithmConfig {
 	}
 }
 
+// RunAsync runs the algorithm in a goroutine
 func (a *Algorithm) RunAsync(ctx context.Context, config types.AlgorithmConfig, seriesChannel types.SeriesChannel, signalChannel types.SignalChannel, waitGroup *sync.WaitGroup) (err error) {
 	a.seriesChannel = seriesChannel
 	a.signalChannel = signalChannel
@@ -101,30 +106,20 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	sma = talib.Sma(series.Close(), a.smaLen)
 	ema = talib.Ema(series.Close(), a.emaLen)
 	rsi = talib.Rsi(series.Close(), a.rsiLen)
-	open = series.PrevOpen()
-	close = series.PrevClose()
+	open = series.PreviousOpen()
+	close = series.PreviousClose()
 
 	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && close > open
 	sellSignal = talib.Crossunder(ema, sma)
 
 	if buySignal {
 		logger.Debugf("EMIT BUY")
-		a.emit(types.Signal{
-			AlgorithmName: name,
-			Symbol:        series.Symbol,
-			Side:          types.Buy,
-			SignalTime:    time.Now(),
-		})
+		a.emit(types.NewSignal(name, series.Symbol, types.Buy))
 	}
 
 	if sellSignal {
 		logger.Debugf("EMIT SELL")
-		a.emit(types.Signal{
-			AlgorithmName: name,
-			Symbol:        series.Symbol,
-			Side:          types.Sell,
-			SignalTime:    time.Now(),
-		})
+		a.emit(types.NewSignal(name, series.Symbol, types.Sell))
 	}
 }
 

@@ -6,29 +6,47 @@ import (
 	"time"
 )
 
+// TimeframeUnit represents the unit for a timeframe
 type TimeframeUnit string
 
 const (
-	TuSec   = TimeframeUnit("s")
-	TuMin   = TimeframeUnit("m")
-	TuHour  = TimeframeUnit("h")
-	TuDay   = TimeframeUnit("d")
-	TuWeek  = TimeframeUnit("w")
+	// TuSec second unit
+	TuSec = TimeframeUnit("s")
+
+	// TuMin minute unit
+	TuMin = TimeframeUnit("m")
+
+	// TuHour hour unit
+	TuHour = TimeframeUnit("h")
+
+	// TuDay day unit
+	TuDay = TimeframeUnit("d")
+
+	// TuWeek week unit
+	TuWeek = TimeframeUnit("w")
+
+	// TuMonth month unit
 	TuMonth = TimeframeUnit("M")
 )
 
+// Timeframe represents a timeframe on which to retrieve candles and execute the algorithm on
 type Timeframe struct {
+	// Value of the timeframe
 	Value int
-	Unit  TimeframeUnit
+
+	// Unit of the timeframe's value
+	Unit TimeframeUnit
 }
 
-func NewTimeframe(v int, u TimeframeUnit) Timeframe {
+// NewTimeframe creates a new Timeframe instance
+func NewTimeframe(value int, unit TimeframeUnit) Timeframe {
 	return Timeframe{
-		Value: v,
-		Unit:  u,
+		Value: value,
+		Unit:  unit,
 	}
 }
 
+// NewTimeframeFromString creates a new Timeframe instance from its string representation
 func NewTimeframeFromString(in string) (tf Timeframe, err error) {
 	var unitPart, valuePart string
 	unitPart = in[len(in)-1:]
@@ -48,10 +66,12 @@ func NewTimeframeFromString(in string) (tf Timeframe, err error) {
 	return
 }
 
+// String returns the string version of the timeframe
 func (tf Timeframe) String() string {
 	return fmt.Sprintf("%d%s", tf.Value, tf.Unit)
 }
 
+// NextOpen calculates the next open time base on the current open time
 func (tf Timeframe) NextOpen(currentOpen time.Time, currentClose time.Time) (nextOpen time.Time) {
 	switch tf.Unit {
 	case TuSec:

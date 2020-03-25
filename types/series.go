@@ -1,30 +1,40 @@
 package types
 
+// SeriesChannel channel to report series on
 type SeriesChannel chan Series
 
+// Series represents a series of candles of a symbol
 type Series struct {
-	Symbol    Symbol
+	// Symbol of the series
+	Symbol Symbol
+
+	// Timeframe of the series
 	Timeframe Timeframe
-	Candles   []OHLC
+
+	// Candles of the series (last candle in the array is the current candle)
+	Candles []OHLC
 }
 
-// First Candle in the array is the most recent one
-func NewSeries(s Symbol, tf Timeframe, c []OHLC) Series {
+// NewSeries creates a Series instance
+func NewSeries(symbol Symbol, timeframe Timeframe, candles []OHLC) Series {
 	return Series{
-		Symbol:    s,
-		Timeframe: tf,
-		Candles:   c,
+		Symbol:    symbol,
+		Timeframe: timeframe,
+		Candles:   candles,
 	}
 }
 
-func (s Series) LastOpen() float64 {
+// CurrentOpen price (the active candle)
+func (s Series) CurrentOpen() float64 {
 	return s.Candles[len(s.Candles)-1].Open
 }
 
-func (s Series) PrevOpen() float64 {
+// PreviousOpen price (the last finished candle)
+func (s Series) PreviousOpen() float64 {
 	return s.Candles[len(s.Candles)-2].Open
 }
 
+// Open prices
 func (s Series) Open() (res []float64) {
 	var numCandles, index int
 	var candle OHLC
@@ -37,6 +47,7 @@ func (s Series) Open() (res []float64) {
 	return
 }
 
+// OpenRange prices
 func (s Series) OpenRange(start int, size int) (res []float64) {
 	var index int
 
@@ -51,6 +62,7 @@ func (s Series) OpenRange(start int, size int) (res []float64) {
 	return
 }
 
+// OpenLastN prices
 func (s Series) OpenLastN(size int) (res []float64) {
 	var start int
 
@@ -59,14 +71,17 @@ func (s Series) OpenLastN(size int) (res []float64) {
 	return
 }
 
-func (s Series) LastHigh() float64 {
+// CurrentHigh price (the active candle)
+func (s Series) CurrentHigh() float64 {
 	return s.Candles[len(s.Candles)-1].High
 }
 
-func (s Series) PrevHigh() float64 {
+// PreviousHigh price (the last finished candle)
+func (s Series) PreviousHigh() float64 {
 	return s.Candles[len(s.Candles)-2].High
 }
 
+// High prices
 func (s Series) High() (res []float64) {
 	var numCandles, index int
 	var candle OHLC
@@ -79,6 +94,7 @@ func (s Series) High() (res []float64) {
 	return
 }
 
+// HighRange prices
 func (s Series) HighRange(start int, size int) (res []float64) {
 	var index int
 
@@ -93,6 +109,7 @@ func (s Series) HighRange(start int, size int) (res []float64) {
 	return
 }
 
+// HighLastN prices
 func (s Series) HighLastN(size int) (res []float64) {
 	var start int
 
@@ -101,14 +118,17 @@ func (s Series) HighLastN(size int) (res []float64) {
 	return
 }
 
-func (s Series) LastLow() float64 {
+// CurrentLow price (the active candle)
+func (s Series) CurrentLow() float64 {
 	return s.Candles[len(s.Candles)-1].Low
 }
 
-func (s Series) PrevLow() float64 {
+// PreviousLow price (the last finished candle)
+func (s Series) PreviousLow() float64 {
 	return s.Candles[len(s.Candles)-2].Low
 }
 
+// Low prices
 func (s Series) Low() (res []float64) {
 	var numCandles, index int
 	var candle OHLC
@@ -121,6 +141,7 @@ func (s Series) Low() (res []float64) {
 	return
 }
 
+// LowRange prices
 func (s Series) LowRange(start int, size int) (res []float64) {
 	var index int
 
@@ -135,6 +156,7 @@ func (s Series) LowRange(start int, size int) (res []float64) {
 	return
 }
 
+// LowLastN prices
 func (s Series) LowLastN(size int) (res []float64) {
 	var start int
 
@@ -143,14 +165,17 @@ func (s Series) LowLastN(size int) (res []float64) {
 	return
 }
 
-func (s Series) LastClose() float64 {
+// CurrentClose price (the active candle)
+func (s Series) CurrentClose() float64 {
 	return s.Candles[len(s.Candles)-1].Close
 }
 
-func (s Series) PrevClose() float64 {
+// PreviousClose price (the last finished candle)
+func (s Series) PreviousClose() float64 {
 	return s.Candles[len(s.Candles)-2].Close
 }
 
+// Close prices
 func (s Series) Close() (res []float64) {
 	var numCandles, index int
 	var candle OHLC
@@ -163,6 +188,7 @@ func (s Series) Close() (res []float64) {
 	return
 }
 
+// CloseRange prices
 func (s Series) CloseRange(start int, size int) (res []float64) {
 	var index int
 
@@ -177,6 +203,7 @@ func (s Series) CloseRange(start int, size int) (res []float64) {
 	return
 }
 
+// CloseLastN prices
 func (s Series) CloseLastN(size int) (res []float64) {
 	var start int
 

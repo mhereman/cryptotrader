@@ -5,6 +5,7 @@
 *.so
 *.dylib
 run.sh
+cmd/cryptotrader/cryptotrader
 
 # Test binary, built with `go test -c`
 *.test

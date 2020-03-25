@@ -2,24 +2,36 @@ package types
 
 import "strings"
 
+// AccountInfo represents information of the account on the exchange
 type AccountInfo struct {
-	MakerCommission  float64
-	TakerCommission  float64
-	BuyerCommission  float64
+	// MakeCommission commission for maker orders
+	MakerCommission float64
+
+	// TakerCommission commission for taker orders
+	TakerCommission float64
+
+	// BuyerCommission commission for buy orders
+	BuyerCommission float64
+
+	// SellerCommission commission for sell orders
 	SellerCommission float64
-	Balances         []AccountBalance
+
+	// Balances the balances of the account
+	Balances []AccountBalance
 }
 
-func NewAccountInfo(mc, tc, bc, sc float64, balances []AccountBalance) AccountInfo {
+// NewAccountInfo creates a new AccountInfo instance
+func NewAccountInfo(makerCommission float64, takerCommission float64, buyerCommission float64, sellerCommission float64, balances []AccountBalance) AccountInfo {
 	return AccountInfo{
-		MakerCommission:  mc,
-		TakerCommission:  tc,
-		BuyerCommission:  bc,
-		SellerCommission: sc,
+		MakerCommission:  makerCommission,
+		TakerCommission:  takerCommission,
+		BuyerCommission:  buyerCommission,
+		SellerCommission: sellerCommission,
 		Balances:         balances,
 	}
 }
 
+// GetAssetQuantity returns the balance information for the requested asset
 func (ai AccountInfo) GetAssetQuantity(asset string) (free float64, locked float64) {
 	var balance AccountBalance
 

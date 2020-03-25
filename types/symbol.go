@@ -5,18 +5,23 @@ import (
 	"strings"
 )
 
+// Symbol represents a tradable asset pair
 type Symbol struct {
 	base  string
 	quote string
 }
 
-func NewSymbol(b, q string) Symbol {
+// NewSymbol creates a Symbol instance
+func NewSymbol(baseAsset string, quoteAsset string) Symbol {
 	return Symbol{
-		base:  strings.ToUpper(b),
-		quote: strings.ToUpper(q),
+		base:  strings.ToUpper(baseAsset),
+		quote: strings.ToUpper(quoteAsset),
 	}
 }
 
+// NewSymbolFromString creates a Symbol instance from a string
+// The string format should be:
+//	base/quote
 func NewSymbolFromString(in string) (sym Symbol, err error) {
 	var parts []string
 	parts = strings.Split(in, "/")
@@ -27,20 +32,23 @@ func NewSymbolFromString(in string) (sym Symbol, err error) {
 	}
 
 	sym = Symbol{
-		base:  parts[0],
-		quote: parts[1],
+		base:  strings.ToUpper(parts[0]),
+		quote: strings.ToUpper(parts[1]),
 	}
 	return
 }
 
+// Base returns the base asset
 func (s Symbol) Base() string {
 	return s.base
 }
 
+// Quote returns the quote asset
 func (s Symbol) Quote() string {
 	return s.quote
 }
 
+// String returns the string version of the symbol
 func (s Symbol) String() string {
 	return fmt.Sprintf("%s/%s", s.base, s.quote)
 }
