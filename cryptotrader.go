@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -19,101 +18,6 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
-type AssetConfig struct {
-	Symbol    types.Symbol
-	Timeframe types.Timeframe
-}
-
-func NewAssetConfigFromFlags(base, quote, timeframe string) (ac AssetConfig, err error) {
-	ac.Symbol = types.NewSymbol(base, quote)
-	if ac.Timeframe, err = types.NewTimeframeFromString(timeframe); err != nil {
-		logger.Errorf("Error parsing timeframe: %s %v\n", timeframe, err)
-		return
-	}
-	return
-}
-
-type ExchangeConfig struct {
-	Name   string
-	ArgMap map[string]string
-}
-
-func NewExchangeConfigFromFlags(name string, args map[string]string) (ec ExchangeConfig, err error) {
-	ec.Name = strings.ToLower(name)
-	ec.ArgMap = args
-	return
-}
-
-type AlgorithmConfig struct {
-	Name   string
-	Config types.AlgorithmConfig
-}
-
-func NewAlgorithmConfigFromFlags(name string, args map[string]string) (ac AlgorithmConfig, err error) {
-	ac.Name = name
-	ac.Config = types.AlgorithmConfig(args)
-	return
-}
-
-type TradeVolumeType int
-
-const (
-	TVTFixed TradeVolumeType = iota
-	TVTPercent
-)
-
-func TradeVolumeTypeFromString(in string) (out TradeVolumeType, err error) {
-	switch strings.ToLower(in) {
-	case "fixed":
-		out = TVTFixed
-	case "pct", "percent":
-		out = TVTPercent
-	default:
-		err = fmt.Errorf("Invalid tradevolume type: %s", in)
-	}
-	return
-}
-
-func (tvt TradeVolumeType) String() string {
-	if tvt == TVTFixed {
-		return "fixed"
-	}
-	return "percent"
-}
-
-type TradeConfig struct {
-	TradeVolumeType TradeVolumeType
-	Volume          float64
-	Reduce          bool
-	Paper           bool
-}
-
-func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool) (tc TradeConfig, err error) {
-	if tc.TradeVolumeType, err = TradeVolumeTypeFromString(tvt); err != nil {
-		return
-	}
-	if tc.TradeVolumeType == TVTPercent {
-		if volume > 1.0 {
-			volume = 1.0
-		}
-	}
-	tc.Volume = volume
-	tc.Reduce = reduce
-	tc.Paper = paper
-	return
-}
-
-type NotifierConfig struct {
-	Name   string
-	ArgMap map[string]string
-}
-
-func NewNotifierConfigFromFlags(name string, args map[string]string) (nc NotifierConfig, err error) {
-	nc.Name = strings.ToLower(name)
-	nc.ArgMap = args
-	return
-}
-
 type CryptoTrader struct {
 	ctx            context.Context
 	cancelFn       context.CancelFunc
@@ -126,9 +30,11 @@ type CryptoTrader struct {
 	notifierCfg    NotifierConfig
 	openTrades     map[string]string
 	exchangeDriver interfaces.IExchangeDriver
-	dataFetcher    interfaces.IDataFether
+	dataFetcher    interfaces.IDataFetcher
 	algorithm      interfaces.IAlgorithm
 	notifier       interfaces.INotifier
+	buyFn          func(types.AccountInfo, types.Symbol) error
+	closeFn        func(types.AccountInfo, types.Symbol) error
 }
 
 func New(assetConfig AssetConfig, exchangeConfig ExchangeConfig, algorithmConfig AlgorithmConfig, tradeConfig TradeConfig, notifierConfig NotifierConfig) (ct *CryptoTrader) {
@@ -142,6 +48,22 @@ func New(assetConfig AssetConfig, exchangeConfig ExchangeConfig, algorithmConfig
 	ct.tradeCfg = tradeConfig
 	ct.notifierCfg = notifierConfig
 	ct.openTrades = make(map[string]string)
+
+	if ct.tradeCfg.Paper {
+		if ct.tradeCfg.TradeVolumeType == TVTFixed {
+			ct.buyFn = ct.paperBuyFixed
+		} else {
+			ct.buyFn = ct.paperBuyPercent
+		}
+		ct.closeFn = ct.paperClosePosition
+	} else {
+		if ct.tradeCfg.TradeVolumeType == TVTFixed {
+			ct.buyFn = ct.liveBuyFixed
+		} else {
+			ct.buyFn = ct.liveBuyPercent
+		}
+		ct.closeFn = ct.liveClosePosition
+	}
 	return
 }
 
@@ -278,7 +200,6 @@ func (ct *CryptoTrader) initNotifier() (err error) {
 
 func (ct *CryptoTrader) executeSignal(signal types.Signal) (err error) {
 	var accountInfo types.AccountInfo
-	var ok bool
 
 	if accountInfo, err = ct.exchangeDriver.GetAccountInfo(ct.ctx); err != nil {
 		logger.Errorf("Execute Signal Error: %v\n", err)
@@ -286,17 +207,9 @@ func (ct *CryptoTrader) executeSignal(signal types.Signal) (err error) {
 	}
 
 	if signal.Side == types.Buy {
-		if _, ok = ct.openTrades[signal.Symbol.String()]; !ok {
-			if ct.tradeCfg.TradeVolumeType == TVTFixed {
-				err = ct.buyFixed(accountInfo, signal.Symbol)
-			} else {
-				err = ct.buyPercent(accountInfo, signal.Symbol)
-			}
-		}
+		err = ct.buyFn(accountInfo, signal.Symbol)
 	} else {
-		if _, ok = ct.openTrades[signal.Symbol.String()]; ok {
-			err = ct.closePosition(accountInfo, signal.Symbol)
-		}
+		err = ct.closeFn(accountInfo, signal.Symbol)
 	}
 
 	if err != nil {
@@ -305,64 +218,118 @@ func (ct *CryptoTrader) executeSignal(signal types.Signal) (err error) {
 	return
 }
 
-func (ct *CryptoTrader) buyFixed(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
-	var freeQuantity, orderQuantity, baseQuantity, averagePrice float64
+func (ct *CryptoTrader) liveBuyFixed(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
+	var symbolString string
+	var orderQuantity, freeQuantity, baseQuantity, averagePrice float64
 	var orderBook types.OrderBook
 	var orderInfo types.OrderInfo
 	var ok bool
 
-	if _, ok = ct.openTrades[symbol.String()]; ok {
-		logger.Warningf("BuyFixed: Trade still open for symbol: %s\n", symbol.String())
+	symbolString = symbol.String()
+	if _, ok = ct.openTrades[symbolString]; ok {
+		logger.Warningf("liveBuyFixed: Trade still open for symbol: %s\n", symbolString)
 		return
 	}
 
 	orderQuantity = ct.tradeCfg.Volume
-	if ct.tradeCfg.Paper == false {
-		freeQuantity, _ = accountInfo.GetAssetQuantity(symbol.Quote())
-		if (freeQuantity * 0.995) < orderQuantity {
-			if ct.tradeCfg.Reduce {
-				orderQuantity = freeQuantity * 0.995
-			} else {
-				logger.Warningf("Insufficient funds to initiate buy position for symbol: %s (required: %f, available: %f)", symbol.String(), orderQuantity, (freeQuantity * 0.995))
-				return
-			}
+	freeQuantity, _ = accountInfo.GetAssetQuantity(symbol.Quote())
+	if (freeQuantity * 0.995) < orderQuantity {
+		if ct.tradeCfg.Reduce == false {
+			logger.Warningf("liveBuyFixed: Insufficient funds to initiate buy position for symbol %s (required: %f, available: %f)", symbolString, orderQuantity, (freeQuantity * 0.995))
+			return
 		}
+		orderQuantity = freeQuantity * 0.995
 	}
 
 	if orderBook, err = ct.exchangeDriver.GetOrderBook(ct.ctx, symbol); err != nil {
-		logger.Errorf("BuyFixed Failed to retrieve order book for symbol: %s %v\n", symbol.String(), err)
+		logger.Errorf("liveBuyFixed Failed to retrieve order book for symbol: %s %v\n", symbolString, err)
 		return
 	}
 	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
 	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
 
-	if ct.tradeCfg.Paper {
-		ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
-		logger.Printf("PaperTrade: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbol.String(), baseQuantity, averagePrice, ct.openTrades[symbol.String()])
-		ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
-		return
-	}
-
 	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity)); err != nil {
-		logger.Warningf("BuyFixed Error: %v\n", err)
-		logger.Printf("Unable to initiate buy position for symbol: %s", symbol.String())
+		logger.Warningf("liveBuyFixed Failed to place order for symbol: %s %v\n", symbolString, err)
 		return
 	}
 
-	ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
-	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
+	ct.openTrades[symbolString] = orderInfo.UserReference.String()
+	logger.Infof("liveBuyFixed: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbolString)))
 
 	return
 }
 
-func (ct *CryptoTrader) buyPercent(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
+func (ct *CryptoTrader) paperBuyFixed(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
+	var symbolString string
+	var orderQuantity, baseQuantity, averagePrice float64
+	var orderBook types.OrderBook
+	var ok bool
+
+	symbolString = symbol.String()
+	if _, ok = ct.openTrades[symbolString]; ok {
+		logger.Warningf("paperFixed: Trade still open for symbol: %s\n", symbolString)
+		return
+	}
+
+	orderQuantity = ct.tradeCfg.Volume
+	if orderBook, err = ct.exchangeDriver.GetOrderBook(ct.ctx, symbol); err != nil {
+		logger.Errorf("paperBuyFixed Failed to retrieve order book for symbol: %s %v\n", symbolString, err)
+		return
+	}
+	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
+	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+
+	ct.openTrades[symbolString] = uuid.New().String()
+	logger.Infof("paperBuyFixed: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbolString)))
+
+	return
+}
+
+func (ct *CryptoTrader) liveBuyPercent(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
+	var symbolString string
 	var freeQuantity, orderQuantity, baseQuantity, averagePrice float64
 	var orderBook types.OrderBook
 	var orderInfo types.OrderInfo
 	var ok bool
 
-	if _, ok = ct.openTrades[symbol.String()]; ok {
-		logger.Warningf("BuyFixed: Trade still open for symbol: %s\n", symbol.String())
+	symbolString = symbol.String()
+	if _, ok = ct.openTrades[symbolString]; ok {
+		logger.Warningf("liveBuyPercent: Trade still open for symbol: %s\n", symbolString)
+		return
+	}
+
+	freeQuantity, _ = accountInfo.GetAssetQuantity(symbol.Quote())
+	orderQuantity = freeQuantity * ct.tradeCfg.Volume * 0.995
+
+	if orderBook, err = ct.exchangeDriver.GetOrderBook(ct.ctx, symbol); err != nil {
+		logger.Errorf("liveBuyPercent Failed to retrieve order book for symbol: %s %v\n", symbolString, err)
+		return
+	}
+	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
+	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+
+	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity)); err != nil {
+		logger.Warningf("liveBuyPercent Failed to place order for symbol: %s %v\n", symbolString, err)
+		return
+	}
+
+	ct.openTrades[symbolString] = orderInfo.UserReference.String()
+	logger.Infof("liveBuyPercent: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbolString)))
+	return
+}
+
+func (ct *CryptoTrader) paperBuyPercent(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
+	var symbolString string
+	var freeQuantity, orderQuantity, baseQuantity, averagePrice float64
+	var orderBook types.OrderBook
+	var ok bool
+
+	symbolString = symbol.String()
+	if _, ok = ct.openTrades[symbolString]; ok {
+		logger.Warningf("paperFixed: Trade still open for symbol: %s\n", symbolString)
 		return
 	}
 
@@ -376,67 +343,41 @@ func (ct *CryptoTrader) buyPercent(accountInfo types.AccountInfo, symbol types.S
 	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
 	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
 
-	if ct.tradeCfg.Paper {
-		ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
-		logger.Printf("PaperTrade: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbol.String(), baseQuantity, averagePrice, ct.openTrades[symbol.String()])
-		ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
-		return
-	}
-
-	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity)); err != nil {
-		logger.Warningf("BuyPercent Error: %v\n", err)
-		logger.Printf("Unable to initiate buy position for symbol: %s", symbol.String())
-		return
-	}
-
-	ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
-	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbol.String())))
-
+	ct.openTrades[symbolString] = uuid.New().String()
+	logger.Infof("paperBuyPercent: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbolString)))
 	return
 }
 
-func (ct *CryptoTrader) closePosition(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
-	var origTradeID string
+func (ct *CryptoTrader) liveClosePosition(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
+	var symbolString, origTradeID string
 	var origTradeUUID uuid.UUID
 	var orderInfo types.OrderInfo
 	var trades []types.Trade
 	var trade types.Trade
-	var baseQuantity, price float64
+	var baseQuantity float64
 	var ok bool
 
+	symbolString = symbol.String()
 	if origTradeID, ok = ct.openTrades[symbol.String()]; !ok {
-		logger.Warningf("ClosePosition: No trade to close for symbol: %s\n", symbol.String())
+		logger.Warningf("liveClosePosition: No trade to close for symbol: %s\n", symbol.String())
 		return
 	}
 	if origTradeUUID, err = uuid.Parse(origTradeID); err != nil {
-		logger.Errorf("ClosePosition: Invalid original trade uuid: %s %v\n", origTradeID, err)
-		return
-	}
-
-	if ct.tradeCfg.Paper {
-		ct.openTrades[symbol.String()] = orderInfo.Uuid.String()
-
-		if price, err = ct.exchangeDriver.Ticker(ct.ctx, symbol); err != nil {
-			logger.Errorf("ClosePosition: Failed to retrieve market price for symbol: %s %v\n", symbol.String(), err)
-			return
-		}
-
-		logger.Printf("PaperTrade: Sell %s [Market Price: %f; UUID: %s]", symbol.String(), price, ct.openTrades[symbol.String()])
-		delete(ct.openTrades, symbol.String())
-		ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Sell", symbol.String())))
+		logger.Errorf("liveClosePosition: Invalid original trade uuid: %s %v\n", origTradeID, err)
 		return
 	}
 
 	if orderInfo, err = ct.exchangeDriver.GetOrder(ct.ctx, types.Order{
-		Symbol: symbol,
-		Uuid:   origTradeUUID,
+		Symbol:        symbol,
+		UserReference: origTradeUUID,
 	}); err != nil {
-		logger.Errorf("ClosePosition Error: %v\n", err)
+		logger.Errorf("liveClosePosition Error: %v\n", err)
 		return
 	}
 
 	if trades, err = ct.exchangeDriver.GetOrderTrades(ct.ctx, orderInfo); err != nil {
-		logger.Errorf("ClosePosition Error: %v\n", err)
+		logger.Errorf("liveClosePosition Error: %v\n", err)
 		return
 	}
 
@@ -448,14 +389,36 @@ func (ct *CryptoTrader) closePosition(accountInfo types.AccountInfo, symbol type
 	}
 	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
 
-	logger.Infof("Close position: sell quantity: %f\n", baseQuantity)
 	if _, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Sell, baseQuantity)); err != nil {
-		logger.Warningf("ClosePosition Error: %v\n", err)
-		logger.Printf("Unable to close position for symbol: %s", symbol.String())
+		logger.Warningf("liveClosePosition Unable to close position for symbol: %s %v\n", symbolString, err)
 	}
 
+	logger.Infof("liveClosePosition: Symbol %s sell quantity: %f\n", symbolString, baseQuantity)
 	delete(ct.openTrades, symbol.String())
 	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Sell", symbol.String())))
+
+	return
+}
+
+func (ct *CryptoTrader) paperClosePosition(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
+	var symbolString string
+	var price float64
+	var ok bool
+
+	symbolString = symbol.String()
+	if _, ok = ct.openTrades[symbol.String()]; !ok {
+		logger.Warningf("paperClosePosition: No trade to close for symbol: %s\n", symbolString)
+		return
+	}
+
+	if price, err = ct.exchangeDriver.Ticker(ct.ctx, symbol); err != nil {
+		logger.Errorf("paperClosePosition: Failed to retrieve market price for symbol: %s %v\n", symbolString, err)
+		return
+	}
+
+	logger.Printf("PaperTrade: Sell %s [Market Price: %f; UUID: %s]", symbolString, price, ct.openTrades[symbolString])
+	delete(ct.openTrades, symbolString)
+	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Sell", symbolString)))
 
 	return
 }

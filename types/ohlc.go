@@ -16,19 +16,20 @@ type OHLC struct {
 	CloseTime time.Time
 }
 
-// NewOHLC ...
-func NewOHLC(o, h, l, c, v float64, ot, ct time.Time) OHLC {
+// NewOHLC creates an OHLC instance
+func NewOHLC(openPrice float64, highPrice float64, lowPrice float64, closePrice float64, volume float64, openTime time.Time, closeTime time.Time) OHLC {
 	return OHLC{
-		Open:      o,
-		High:      h,
-		Low:       l,
-		Close:     c,
-		Volume:    v,
-		OpenTime:  ot,
-		CloseTime: ct,
+		Open:      openPrice,
+		High:      highPrice,
+		Low:       lowPrice,
+		Close:     closePrice,
+		Volume:    volume,
+		OpenTime:  openTime,
+		CloseTime: closeTime,
 	}
 }
 
+// String returns a string version of the candle
 func (o OHLC) String() string {
 	return fmt.Sprintf("[%v] O: %f  H: %f  L: %f  C: %f", o.OpenTime, o.Open, o.High, o.Low, o.Close)
 }

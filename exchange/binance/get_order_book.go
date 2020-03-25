@@ -8,6 +8,7 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// GetOrderBook executes the get orderbook requets
 func (b Binance) GetOrderBook(ctx context.Context, symbol types.Symbol) (book types.OrderBook, err error) {
 	var ds *bin.DepthService
 	var binanceSymbol string
@@ -40,6 +41,6 @@ func (b Binance) GetOrderBook(ctx context.Context, symbol types.Symbol) (book ty
 	for index, ask = range response.Asks {
 		asks[index] = types.NewOrderBookEntry(b.toFloat(ask.Price), b.toFloat(ask.Quantity))
 	}
-	book = types.NewOrderBook(bids, asks)
+	book = types.NewOrderBook(symbol, bids, asks)
 	return
 }

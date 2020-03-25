@@ -9,7 +9,8 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
-func (b Binance) CancelOrder(ctx context.Context, order types.Order, newUuid uuid.UUID) (info types.OrderInfo, err error) {
+// CancelOrder executes the cancel order request
+func (b Binance) CancelOrder(ctx context.Context, order types.Order, newUUID uuid.UUID) (info types.OrderInfo, err error) {
 	var cos *bin.CancelOrderService
 	var response *bin.CancelOrderResponse
 	var binanceSymbol string
@@ -21,18 +22,18 @@ func (b Binance) CancelOrder(ctx context.Context, order types.Order, newUuid uui
 
 	cos = b.client.NewCancelOrderService()
 	cos.Symbol(binanceSymbol)
-	cos.OrigClientOrderID(order.Uuid.String())
-	cos.NewClientOrderID(newUuid.String())
+	cos.OrigClientOrderID(order.UserReference.String())
+	cos.NewClientOrderID(newUUID.String())
 	if response, err = cos.Do(ctx); err != nil {
 		logger.Errorf("Binance::CancelOrder Error %v\n", err)
 		return
 	}
 
-	if info.Uuid, err = uuid.Parse(response.OrigClientOrderID); err != nil {
+	if info.UserReference, err = uuid.Parse(response.OrigClientOrderID); err != nil {
 		logger.Errorf("Binance::CancelOrder Error %v\n", err)
 		return
 	}
-	if info.CancelUuid, err = uuid.Parse(response.ClientOrderID); err != nil {
+	if info.CancelUserReference, err = uuid.Parse(response.ClientOrderID); err != nil {
 		logger.Errorf("Binance::CancelOrder Error %v\n", err)
 		return
 	}

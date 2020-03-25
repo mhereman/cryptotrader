@@ -2,19 +2,36 @@ package types
 
 import "github.com/google/uuid"
 
+// Order represents an order on the exchange
 type Order struct {
-	Uuid        uuid.UUID
-	Symbol      Symbol
-	Side        Side
-	Type        OrderType
+	// UserReference user reference of the order
+	UserReference uuid.UUID
+
+	// Symbol of the order
+	Symbol Symbol
+
+	// Side of the order
+	Side Side
+
+	// Type of the order
+	Type OrderType
+
+	// TimeInForce of the order
 	TimeInForce TimeInForce
-	Quantity    float64
-	Price       float64
-	StopPrice   float64
+
+	// Quantiy in base asset of the order
+	Quantity float64
+
+	// Price in quote asset of the order
+	Price float64
+
+	// StopPrice in quote asset of the order
+	StopPrice float64
 }
 
+// NewLimitOrder creates a new Limit order instance
 func NewLimitOrder(symbol Symbol, side Side, timeInForce TimeInForce, quantity float64, price float64) (o Order) {
-	o.Uuid = uuid.New()
+	o.UserReference = uuid.New()
 	o.Symbol = symbol
 	o.Side = side
 	o.Type = Limit
@@ -24,8 +41,9 @@ func NewLimitOrder(symbol Symbol, side Side, timeInForce TimeInForce, quantity f
 	return
 }
 
+// NewMarketOrder creates a new Market order instance
 func NewMarketOrder(symbol Symbol, side Side, quantity float64) (o Order) {
-	o.Uuid = uuid.New()
+	o.UserReference = uuid.New()
 	o.Symbol = symbol
 	o.Side = side
 	o.Type = Market
@@ -33,8 +51,9 @@ func NewMarketOrder(symbol Symbol, side Side, quantity float64) (o Order) {
 	return
 }
 
+// NewStopLossOrder creates a new StopLoss order instance
 func NewStopLossOrder(symbol Symbol, side Side, quantity float64, stopPrice float64) (o Order) {
-	o.Uuid = uuid.New()
+	o.UserReference = uuid.New()
 	o.Symbol = symbol
 	o.Side = side
 	o.Type = StopLoss
@@ -43,8 +62,9 @@ func NewStopLossOrder(symbol Symbol, side Side, quantity float64, stopPrice floa
 	return o
 }
 
+// NewStopLossLimitOrder creates a new StopLossLimit order instance
 func NewStopLossLimitOrder(symbol Symbol, side Side, quantity float64, stopPrice float64, price float64) (o Order) {
-	o.Uuid = uuid.New()
+	o.UserReference = uuid.New()
 	o.Symbol = symbol
 	o.Side = side
 	o.Type = StopLossLimit
@@ -54,8 +74,9 @@ func NewStopLossLimitOrder(symbol Symbol, side Side, quantity float64, stopPrice
 	return o
 }
 
+// NewTakeProfitOrder creates a new TakeProfit order instance
 func NewTakeProfitOrder(symbol Symbol, side Side, quantity float64, stopPrice float64) (o Order) {
-	o.Uuid = uuid.New()
+	o.UserReference = uuid.New()
 	o.Symbol = symbol
 	o.Side = side
 	o.Type = TakeProfit
@@ -64,8 +85,9 @@ func NewTakeProfitOrder(symbol Symbol, side Side, quantity float64, stopPrice fl
 	return o
 }
 
+// NewTakeProfitLimitOrder creates a new TakeProfitLimit order instance
 func NewTakeProfitLimitOrder(symbol Symbol, side Side, quantity float64, stopPrice float64, price float64) (o Order) {
-	o.Uuid = uuid.New()
+	o.UserReference = uuid.New()
 	o.Symbol = symbol
 	o.Side = side
 	o.Type = TakeProfitLimit
@@ -75,8 +97,9 @@ func NewTakeProfitLimitOrder(symbol Symbol, side Side, quantity float64, stopPri
 	return o
 }
 
+// NewLimitMakerOrder creates a new LimitMaker order instance
 func NewLimitMakerOrder(symbol Symbol, side Side, timeInForce TimeInForce, quantity float64, price float64) (o Order) {
-	o.Uuid = uuid.New()
+	o.UserReference = uuid.New()
 	o.Symbol = symbol
 	o.Side = side
 	o.Type = LimitMaker

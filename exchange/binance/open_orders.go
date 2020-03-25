@@ -9,13 +9,14 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// OpenOrders executes the open orders request
 func (b Binance) OpenOrders(ctx context.Context, symbol types.Symbol) (orders []types.OrderInfo, err error) {
 	var loos *bin.ListOpenOrdersService
 	var response []*bin.Order
 	var binanceSymbol string
 	var numOrders, index int
 	var order *bin.Order
-	var tmpUuid uuid.UUID
+	var tmpUUID uuid.UUID
 	var tmpSymbol types.Symbol
 
 	if binanceSymbol, err = b.symbolToBinance(symbol); err != nil {
@@ -33,7 +34,7 @@ func (b Binance) OpenOrders(ctx context.Context, symbol types.Symbol) (orders []
 	numOrders = len(response)
 	orders = make([]types.OrderInfo, numOrders, numOrders)
 	for index, order = range response {
-		if tmpUuid, err = uuid.Parse(order.ClientOrderID); err != nil {
+		if tmpUUID, err = uuid.Parse(order.ClientOrderID); err != nil {
 			logger.Errorf("Binance::OpenOrders Error %v\n", err)
 			return
 		}
@@ -43,7 +44,7 @@ func (b Binance) OpenOrders(ctx context.Context, symbol types.Symbol) (orders []
 		}
 
 		orders[index] = types.NewOrderInfo(
-			tmpUuid,
+			tmpUUID,
 			order.OrderID,
 			tmpSymbol,
 			b.toTime(order.Time),

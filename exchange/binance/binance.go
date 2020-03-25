@@ -17,11 +17,13 @@ func init() {
 	exchange.RegisterExchange(exchangeName, createBinance)
 }
 
+// Binance represents the Binance exchangle plugin
 type Binance struct {
 	client     *bin.Client
 	allSymbols map[string][]string
 }
 
+// New creates a new Binance Exchange plugin
 func New(ctx context.Context, config map[string]string) (driver *Binance, err error) {
 	var apiKey, apiSecret string
 	var ok bool
@@ -52,6 +54,7 @@ func createBinance(ctx context.Context, config map[string]string) (driver interf
 	return
 }
 
+// Name returns the name of the exchange plugin
 func (b Binance) Name() string {
 	return exchangeName
 }

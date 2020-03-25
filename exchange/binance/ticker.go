@@ -9,6 +9,7 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// Ticker executes the ticker request
 func (b *Binance) Ticker(ctx context.Context, symbol types.Symbol) (price float64, err error) {
 	var ts *bin.ListPricesService
 	var response []*bin.SymbolPrice

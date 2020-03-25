@@ -8,6 +8,7 @@ import (
 	"github.com/mhereman/cryptotrader/logger"
 )
 
+// GetServerTime executes the get server time request
 func (b Binance) GetServerTime(ctx context.Context) (serverTime time.Time, err error) {
 	var sts *bin.ServerTimeService
 	var response int64

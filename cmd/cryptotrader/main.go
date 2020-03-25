@@ -5,11 +5,7 @@ import (
 
 	"github.com/mhereman/cryptotrader"
 
-	_ "github.com/mhereman/cryptotrader/algorithms/emasmav1"
-	_ "github.com/mhereman/cryptotrader/exchange/binance"
 	"github.com/mhereman/cryptotrader/logger"
-	_ "github.com/mhereman/cryptotrader/notifiers/noop"
-	_ "github.com/mhereman/cryptotrader/notifiers/proximussms"
 )
 
 func main() {

@@ -7,6 +7,7 @@ import (
 	"github.com/mhereman/cryptotrader/logger"
 )
 
+// TestConnectivity tests exchange connectivity
 func (b Binance) TestConnectivity(ctx context.Context) (ok bool, err error) {
 	var ps *bin.PingService
 

@@ -2,6 +2,7 @@ package types
 
 import "time"
 
+// Trade represents the information regarding a single trade
 type Trade struct {
 	Symbol          Symbol
 	ID              int64
@@ -17,6 +18,7 @@ type Trade struct {
 	IsBestMatch     bool
 }
 
+// NewTrade creates a new Trade instance
 func NewTrade(symbol Symbol, id, orderId int64, price, quantity, quoteQuantity, commission float64, commissionAsset string, tm time.Time, isBuyer, isMaker, isBestMacth bool) (t Trade) {
 	return Trade{
 		Symbol:          symbol,

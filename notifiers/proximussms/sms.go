@@ -20,6 +20,7 @@ func init() {
 	notifiers.RegisterNotifier(notifierName, createProximusSms)
 }
 
+// ProximusSMS represents the Proximus SMS notifier
 type ProximusSMS struct {
 	apiToken    string
 	destination string
@@ -51,6 +52,7 @@ type deliveryInfo struct {
 	DeliveryStatus string `json:"deliveryStatus"`
 }
 
+// New creates a new Proximus SMS notifier
 func New(ctx context.Context, config map[string]string) (sms *ProximusSMS, err error) {
 	var apiToken, destination string
 	var ok bool
@@ -76,10 +78,12 @@ func createProximusSms(ctx context.Context, config map[string]string) (notifier 
 	return
 }
 
+// Name returns the name of the notifier
 func (sms ProximusSMS) Name() string {
 	return notifierName
 }
 
+// Notify ...
 func (sms ProximusSMS) Notify(ctx context.Context, data []byte) (err error) {
 	var smsMessage message
 	var client *http.Client

@@ -9,6 +9,7 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// GetOrderTrades executes the get order trades request
 func (b Binance) GetOrderTrades(ctx context.Context, orderInfo types.OrderInfo) (trades []types.Trade, err error) {
 	var gots *bin.ListTradesService
 	var response []*bin.TradeV3

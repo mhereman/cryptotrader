@@ -9,6 +9,7 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// GetAccountInfo executes the get account info request
 func (b *Binance) GetAccountInfo(ctx context.Context) (info types.AccountInfo, err error) {
 	var as *bin.GetAccountService
 	var response *bin.Account

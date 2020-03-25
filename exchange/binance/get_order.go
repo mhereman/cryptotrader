@@ -9,6 +9,7 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// GetOrder executes the get order request
 func (b Binance) GetOrder(ctx context.Context, order types.Order) (info types.OrderInfo, err error) {
 	var gos *bin.GetOrderService
 	var response *bin.Order
@@ -21,13 +22,13 @@ func (b Binance) GetOrder(ctx context.Context, order types.Order) (info types.Or
 
 	gos = b.client.NewGetOrderService()
 	gos.Symbol(binanceSymbol)
-	gos.OrigClientOrderID(order.Uuid.String())
+	gos.OrigClientOrderID(order.UserReference.String())
 	if response, err = gos.Do(ctx); err != nil {
 		logger.Errorf("Binance::GetOrder Error %v\n", err)
 		return
 	}
 
-	if info.Uuid, err = uuid.Parse(response.ClientOrderID); err != nil {
+	if info.UserReference, err = uuid.Parse(response.ClientOrderID); err != nil {
 		logger.Errorf("Binance::GetOrder Error %v\n", err)
 		return
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/mhereman/cryptotrader/types"
 )
 
+// PlaceOrder executes the place order request
 func (b Binance) PlaceOrder(ctx context.Context, order types.Order) (info types.OrderInfo, err error) {
 	var cos *bin.CreateOrderService
 	var binanceSymbol string
@@ -24,7 +25,7 @@ func (b Binance) PlaceOrder(ctx context.Context, order types.Order) (info types.
 	}
 
 	cos = b.client.NewCreateOrderService()
-	cos.NewClientOrderID(order.Uuid.String())
+	cos.NewClientOrderID(order.UserReference.String())
 	cos.Symbol(binanceSymbol)
 	cos.Side(b.sideToBinance(order.Side))
 	cos.Type(b.orderTypeToBinance(order.Type))
@@ -63,7 +64,7 @@ func (b Binance) PlaceOrder(ctx context.Context, order types.Order) (info types.
 		return
 	}
 
-	if info.Uuid, err = uuid.Parse(response.ClientOrderID); err != nil {
+	if info.UserReference, err = uuid.Parse(response.ClientOrderID); err != nil {
 		logger.Errorf("Binance::PlaceOrder Error %v\n", err)
 		return
 	}
