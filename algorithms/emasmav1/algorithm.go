@@ -3,7 +3,9 @@ package emasmav1
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/markcheno/go-talib"
@@ -21,6 +23,7 @@ const (
 	cfgEmaLen    = "Ema/Sma.ema_len"
 	cfgRsiLen    = "Ema/Sma.rsi_len"
 	cfgRsiBuyMax = "Ema/Sma.rsi_buy_max"
+	cfgBacktest  = "Ema/Sma.backtest"
 )
 
 var defaultConfig types.AlgorithmConfig = types.AlgorithmConfig{
@@ -28,6 +31,7 @@ var defaultConfig types.AlgorithmConfig = types.AlgorithmConfig{
 	cfgEmaLen:    "7",
 	cfgRsiLen:    "14",
 	cfgRsiBuyMax: "90.0",
+	cfgBacktest:  "false",
 }
 
 func init() {
@@ -40,6 +44,7 @@ type Algorithm struct {
 	emaLen        int
 	rsiLen        int
 	rsiBuyMax     float64
+	backtest      bool
 	seriesChannel types.SeriesChannel
 	signalChannel types.SignalChannel
 }
@@ -76,6 +81,7 @@ func (a Algorithm) Config() types.AlgorithmConfig {
 		cfgEmaLen:    fmt.Sprintf("%d", a.emaLen),
 		cfgRsiLen:    fmt.Sprintf("%d", a.rsiLen),
 		cfgRsiBuyMax: fmt.Sprintf("%f", a.rsiBuyMax),
+		cfgBacktest:  fmt.Sprintf("%t", a.backtest),
 	}
 }
 
@@ -102,24 +108,47 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	var sma, ema, rsi []float64
 	var open, close float64
 	var buySignal, sellSignal bool
+	var calcSeries types.Series
 
-	sma = talib.Sma(series.Close(), a.smaLen)
-	ema = talib.Ema(series.Close(), a.emaLen)
-	rsi = talib.Rsi(series.Close(), a.rsiLen)
-	open = series.PreviousOpen()
-	close = series.PreviousClose()
+	calcSeries = series.SubSeries(0, series.Length()-1)
+
+	sma = talib.Sma(calcSeries.Close(), a.smaLen)
+	ema = talib.Ema(calcSeries.Close(), a.emaLen)
+	rsi = talib.Rsi(calcSeries.Close(), a.rsiLen)
+	open = calcSeries.CurrentOpen()
+	close = calcSeries.CurrentClose()
 
 	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && close > open
 	sellSignal = talib.Crossunder(ema, sma)
 
 	if buySignal {
 		logger.Debugf("EMIT BUY")
-		a.emit(types.NewSignal(name, series.Symbol, types.Buy))
+		if a.backtest {
+			a.emit(types.NewBacktestSignal(name, series.Symbol, types.Buy, calcSeries.CurrentCandleTime()))
+		} else {
+			a.emit(types.NewSignal(name, series.Symbol, types.Buy))
+		}
 	}
 
 	if sellSignal {
 		logger.Debugf("EMIT SELL")
-		a.emit(types.NewSignal(name, series.Symbol, types.Sell))
+		if a.backtest {
+			a.emit(types.NewBacktestSignal(name, series.Symbol, types.Sell, calcSeries.CurrentCandleTime()))
+		} else {
+			a.emit(types.NewSignal(name, series.Symbol, types.Sell))
+		}
+	}
+}
+
+func (a *Algorithm) checkBacktest(ctx context.Context, series types.Series) {
+	var minSampleLen, length int
+	var subSeries types.Series
+
+	minSampleLen = int(math.Max(math.Max(float64(a.smaLen), float64(a.emaLen)), float64(a.rsiLen))) + 2
+
+	for length = minSampleLen; length <= series.Length(); length++ {
+		subSeries = series.SubSeries(0, length)
+		a.check(ctx, subSeries)
 	}
 }
 
@@ -143,6 +172,8 @@ func (a *Algorithm) configure(config types.AlgorithmConfig) (err error) {
 			if a.rsiBuyMax, err = strconv.ParseFloat(value, 64); err != nil {
 				return
 			}
+		case cfgBacktest:
+			a.backtest = strings.ToLower(value) == "true"
 		}
 	}
 	return
@@ -160,6 +191,11 @@ func runRoutine(ctx context.Context, wg *sync.WaitGroup, seriesChannel types.Ser
 		case <-ctx.Done():
 			runLoop = false
 		case series = <-seriesChannel:
+			logger.Debugf("Algorithm :%s received new data\n", a.Name())
+			if a.backtest {
+				a.checkBacktest(ctx, series)
+				continue
+			}
 			a.check(ctx, series)
 		}
 	}

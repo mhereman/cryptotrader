@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 // SeriesChannel channel to report series on
 type SeriesChannel chan Series
 
@@ -22,6 +24,30 @@ func NewSeries(symbol Symbol, timeframe Timeframe, candles []OHLC) Series {
 		Timeframe: timeframe,
 		Candles:   candles,
 	}
+}
+
+func (s Series) SubSeries(start int, length int) Series {
+	if start+length > len(s.Candles) {
+		length = len(s.Candles) - start
+	}
+
+	return Series{
+		Symbol:    s.Symbol,
+		Timeframe: s.Timeframe,
+		Candles:   s.Candles[start:(start + length)],
+	}
+}
+
+func (s Series) Length() int {
+	return len(s.Candles)
+}
+
+func (s Series) CurrentCandleTime() time.Time {
+	return s.Candles[len(s.Candles)-1].OpenTime
+}
+
+func (s Series) PreviousCandleTime() time.Time {
+	return s.Candles[len(s.Candles)-2].OpenTime
 }
 
 // CurrentOpen price (the active candle)

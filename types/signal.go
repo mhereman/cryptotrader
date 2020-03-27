@@ -21,6 +21,9 @@ type Signal struct {
 
 	// Time of the signal
 	SignalTime time.Time
+
+	// Indicates if this is a backtest signal
+	IsBacktest bool
 }
 
 // NewSignal creates a new Signal instance
@@ -30,7 +33,16 @@ func NewSignal(algoName string, symbol Symbol, side Side) Signal {
 		Symbol:        symbol,
 		Side:          side,
 		SignalTime:    time.Now(),
+		IsBacktest:    false,
 	}
+}
+
+func NewBacktestSignal(algoName string, symbol Symbol, side Side, candleTime time.Time) Signal {
+	var signal Signal
+	signal = NewSignal(algoName, symbol, side)
+	signal.SignalTime = candleTime
+	signal.IsBacktest = true
+	return signal
 }
 
 // String returns a string representation of the signal
