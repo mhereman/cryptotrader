@@ -27,7 +27,7 @@ const (
 )
 
 var defaultConfig types.AlgorithmConfig = types.AlgorithmConfig{
-	cfgSmaLen:    "14",
+	cfgSmaLen:    "15",
 	cfgEmaLen:    "7",
 	cfgRsiLen:    "14",
 	cfgRsiBuyMax: "90.0",
@@ -106,7 +106,7 @@ func (a *Algorithm) emit(signal types.Signal) {
 
 func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	var sma, ema, rsi []float64
-	var open, close float64
+	//var open, close float64
 	var buySignal, sellSignal bool
 	var calcSeries types.Series
 
@@ -115,10 +115,10 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	sma = talib.Sma(calcSeries.Close(), a.smaLen)
 	ema = talib.Ema(calcSeries.Close(), a.emaLen)
 	rsi = talib.Rsi(calcSeries.Close(), a.rsiLen)
-	open = calcSeries.CurrentOpen()
-	close = calcSeries.CurrentClose()
+	//open = calcSeries.CurrentOpen()
+	//close = calcSeries.CurrentClose()
 
-	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && close > open
+	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax // && close > open
 	sellSignal = talib.Crossunder(ema, sma)
 
 	if buySignal {
