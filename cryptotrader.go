@@ -35,6 +35,7 @@ type CryptoTrader struct {
 	notifier       interfaces.INotifier
 	buyFn          func(types.AccountInfo, types.Symbol) error
 	closeFn        func(types.AccountInfo, types.Symbol) error
+	my_var         int
 }
 
 func New(assetConfig AssetConfig, exchangeConfig ExchangeConfig, algorithmConfig AlgorithmConfig, tradeConfig TradeConfig, notifierConfig NotifierConfig) (ct *CryptoTrader) {
@@ -206,6 +207,11 @@ func (ct *CryptoTrader) executeSignal(signal types.Signal) (err error) {
 		return
 	}
 
+	if signal.IsBacktest {
+		logger.Infoln(signal.String())
+		return
+	}
+
 	if signal.Side == types.Buy {
 		err = ct.buyFn(accountInfo, signal.Symbol)
 	} else {
@@ -218,10 +224,48 @@ func (ct *CryptoTrader) executeSignal(signal types.Signal) (err error) {
 	return
 }
 
+func (ct *CryptoTrader) buyMarket(symbol types.Symbol, orderQuantity float64) (orderInfo types.OrderInfo, averagePrice float64, err error) {
+	var orderBook types.OrderBook
+	var baseQuantity float64
+
+	if orderBook, err = ct.exchangeDriver.GetOrderBook(ct.ctx, symbol); err != nil {
+		err = fmt.Errorf("buyMarket Failed to retrieve order book for symbol: %s %v", symbol.String(), err)
+		return
+	}
+	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
+	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+
+	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity)); err != nil {
+		err = fmt.Errorf("buyMarket Failed to place order for symbol: %s %v", symbol.String(), err)
+		return
+	}
+
+	return
+}
+
+func (ct *CryptoTrader) buyLimit(symbol types.Symbol, orderQuantity float64) (orderInfo types.OrderInfo, limitPrice float64, err error) {
+	var marketPrice, baseQuantity float64
+
+	if marketPrice, err = ct.exchangeDriver.Ticker(ct.ctx, symbol); err != nil {
+		err = fmt.Errorf("buyLimit Failed to retrieve market price for symbol %s %v", symbol.String(), err)
+		return
+	}
+
+	limitPrice = marketPrice * (1.0 + ct.tradeCfg.MaxSlippage)
+	baseQuantity = orderQuantity / limitPrice
+	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+
+	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewLimitOrder(symbol, types.Buy, types.ImmediateOrCancel, baseQuantity, limitPrice)); err != nil {
+		err = fmt.Errorf("buyLimit Failed to place order for symbol: %s %v", symbol.String(), err)
+		return
+	}
+
+	return
+}
+
 func (ct *CryptoTrader) liveBuyFixed(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
 	var symbolString string
-	var orderQuantity, freeQuantity, baseQuantity, averagePrice float64
-	var orderBook types.OrderBook
+	var orderQuantity, freeQuantity, baseQuantity, price float64
 	var orderInfo types.OrderInfo
 	var ok bool
 
@@ -241,20 +285,18 @@ func (ct *CryptoTrader) liveBuyFixed(accountInfo types.AccountInfo, symbol types
 		orderQuantity = freeQuantity * 0.995
 	}
 
-	if orderBook, err = ct.exchangeDriver.GetOrderBook(ct.ctx, symbol); err != nil {
-		logger.Errorf("liveBuyFixed Failed to retrieve order book for symbol: %s %v\n", symbolString, err)
-		return
+	if ct.tradeCfg.MaxSlippage > 0.0 {
+		orderInfo, price, err = ct.buyLimit(symbol, orderQuantity)
+	} else {
+		orderInfo, price, err = ct.buyMarket(symbol, orderQuantity)
 	}
-	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
-	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
-
-	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity)); err != nil {
-		logger.Warningf("liveBuyFixed Failed to place order for symbol: %s %v\n", symbolString, err)
+	if err != nil {
+		logger.Errorf("liveBuyFixed: %v\n", err)
 		return
 	}
 
 	ct.openTrades[symbolString] = orderInfo.UserReference.String()
-	logger.Infof("liveBuyFixed: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
+	logger.Infof("liveBuyFixed: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, price, ct.openTrades[symbolString])
 	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbolString)))
 
 	return
@@ -289,8 +331,7 @@ func (ct *CryptoTrader) paperBuyFixed(accountInfo types.AccountInfo, symbol type
 
 func (ct *CryptoTrader) liveBuyPercent(accountInfo types.AccountInfo, symbol types.Symbol) (err error) {
 	var symbolString string
-	var freeQuantity, orderQuantity, baseQuantity, averagePrice float64
-	var orderBook types.OrderBook
+	var freeQuantity, orderQuantity, baseQuantity, price float64
 	var orderInfo types.OrderInfo
 	var ok bool
 
@@ -303,20 +344,18 @@ func (ct *CryptoTrader) liveBuyPercent(accountInfo types.AccountInfo, symbol typ
 	freeQuantity, _ = accountInfo.GetAssetQuantity(symbol.Quote())
 	orderQuantity = freeQuantity * ct.tradeCfg.Volume * 0.995
 
-	if orderBook, err = ct.exchangeDriver.GetOrderBook(ct.ctx, symbol); err != nil {
-		logger.Errorf("liveBuyPercent Failed to retrieve order book for symbol: %s %v\n", symbolString, err)
-		return
+	if ct.tradeCfg.MaxSlippage > 0 {
+		orderInfo, price, err = ct.buyLimit(symbol, orderQuantity)
+	} else {
+		orderInfo, price, err = ct.buyMarket(symbol, orderQuantity)
 	}
-	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
-	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
-
-	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity)); err != nil {
-		logger.Warningf("liveBuyPercent Failed to place order for symbol: %s %v\n", symbolString, err)
+	if err != nil {
+		logger.Errorf("liveBuyPercent: %v\n", err)
 		return
 	}
 
 	ct.openTrades[symbolString] = orderInfo.UserReference.String()
-	logger.Infof("liveBuyPercent: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
+	logger.Infof("liveBuyPercent: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, price, ct.openTrades[symbolString])
 	ct.notifier.Notify(ct.ctx, []byte(fmt.Sprintf("Signal %s Buy", symbolString)))
 	return
 }

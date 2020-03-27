@@ -52,10 +52,14 @@ type TradeConfig struct {
 
 	// Paper perform paper trading only, do not issue any orer on the exchange
 	Paper bool
+
+	// Max slippage in percent
+	// 0.1% = 0.001
+	MaxSlippage float64
 }
 
 // NewTradeConfigFromFlags creates a new TradeConfig insance from the cmdline argument values
-func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool) (tc TradeConfig, err error) {
+func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool, maxSlippage float64) (tc TradeConfig, err error) {
 	if tc.TradeVolumeType, err = TradeVolumeTypeFromString(tvt); err != nil {
 		return
 	}
@@ -67,5 +71,6 @@ func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool
 	tc.Volume = volume
 	tc.Reduce = reduce
 	tc.Paper = paper
+	tc.MaxSlippage = maxSlippage
 	return
 }

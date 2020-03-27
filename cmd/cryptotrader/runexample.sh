@@ -47,7 +47,7 @@ ALGO='Ema/Sma'
 # Ema/Sma.ema_len = 7
 # Ema/Sma.rsi_len = 14
 # Ema/Sma.rsi_buy_max = 90.0
-ALGO_ARGS='Ema/Sma.sma_len=14;Ema/Sma.ema_len=7;Ema/Sma.rsi_len=14;Ema/Sma.rsi_buy_max=90.0'
+ALGO_ARGS='Ema/Sma.sma_len=14;Ema/Sma.ema_len=7;Ema/Sma.rsi_len=14;Ema/Sma.rsi_buy_max=90.0;Ema/Sma.backtest=false'
 
 
 # Trade Configuration
@@ -70,6 +70,10 @@ REDUCE='true'
 # Perform paper trading
 # If this is set to true the trades will not be executed but a message is printed to the console.
 PAPER_TRADING='true'
+
+# Max slippage on buy orders
+# Use 0 to disable
+MAX_SLIPPAGE='0.001'
 
 
 
@@ -101,5 +105,6 @@ cryptotrader \
     -volume=${VOLUME} \
     -reduce=${REDUCE} \
     -papertrading=${PAPER_TRADING} \
+    -maxslippage=${MAX_SLIPPAGE} \
     -notifier=${NOTIFIER} \
     -notifierargs=${NOTIFIER_CONFIG}

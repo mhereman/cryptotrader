@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	checkInterval time.Duration = (time.Millisecond * 500)
-	sleepInterval time.Duration = (time.Millisecond * 100)
+	checkInterval time.Duration = (time.Millisecond * 1000)
+	sleepInterval time.Duration = (time.Millisecond * 500)
 )
 
 type DataFetcher struct {
@@ -107,6 +107,7 @@ func (dc *DataFetcher) fetchExpiredData(ctx context.Context) {
 			}
 
 			if refreshTime.Before(refTime) {
+				logger.Debugf("Fetching new data: %v\n", refTime)
 				if series, nextRefreshTime, err = dc.fetchData(ctx, symbol, timeFrame); err != nil {
 					logger.Errorf("DataCacher::FetchExpiredData Error %v\n", err)
 					continue
@@ -126,6 +127,7 @@ func (dc *DataFetcher) fetchExpiredData(ctx context.Context) {
 				// We want to be sure the next candle has been produced completely so we ad 100milli slip time
 				nextRefreshTime = nextRefreshTime.Add(time.Second * 2)
 
+				logger.Debugf("Pushing new data")
 				seriesChannel <- series
 				subMap1[timeframeString] = nextRefreshTime
 				dc.refreshTime[symbolString] = subMap1
