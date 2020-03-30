@@ -28,9 +28,7 @@ func (b Binance) GetSymbolInfo(ctx context.Context, symbol types.Symbol) (info t
 
 	for _, symInfo = range response.Symbols {
 		if symInfo.Symbol == BinanceSymbol {
-			info.Symbol = symbol
-			info.MinPrice = symInfo.PriceFilter().MinPrice
-			info.MinLotQuantity = symInfo.LotSizeFilter().MinQuantity
+			info = types.NewSymbolInfo(symbol, symInfo.PriceFilter().MinPrice, symInfo.LotSizeFilter().MinQuantity)
 			return
 		}
 	}
