@@ -235,7 +235,7 @@ func (ct *CryptoTrader) buyMarket(symbol types.Symbol, orderQuantity float64) (o
 	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
 	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
 
-	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity)); err != nil {
+	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity), nil); err != nil {
 		err = fmt.Errorf("buyMarket Failed to place order for symbol: %s %v", symbol.String(), err)
 		return
 	}
@@ -245,9 +245,15 @@ func (ct *CryptoTrader) buyMarket(symbol types.Symbol, orderQuantity float64) (o
 
 func (ct *CryptoTrader) buyLimit(symbol types.Symbol, orderQuantity float64) (orderInfo types.OrderInfo, limitPrice float64, err error) {
 	var marketPrice, baseQuantity float64
+	var symbolInfo types.SymbolInfo
 
 	if marketPrice, err = ct.exchangeDriver.Ticker(ct.ctx, symbol); err != nil {
 		err = fmt.Errorf("buyLimit Failed to retrieve market price for symbol %s %v", symbol.String(), err)
+		return
+	}
+
+	if symbolInfo, err = ct.exchangeDriver.GetSymbolInfo(ct.ctx, symbol); err != nil {
+		err = fmt.Errorf("buyLimit Failed to retrieve symbol info for symbol %s %v", symbol.String(), err)
 		return
 	}
 
@@ -255,7 +261,7 @@ func (ct *CryptoTrader) buyLimit(symbol types.Symbol, orderQuantity float64) (or
 	baseQuantity = orderQuantity / limitPrice
 	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
 
-	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewLimitOrder(symbol, types.Buy, types.ImmediateOrCancel, baseQuantity, limitPrice)); err != nil {
+	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewLimitOrder(symbol, types.Buy, types.ImmediateOrCancel, baseQuantity, limitPrice), &symbolInfo); err != nil {
 		err = fmt.Errorf("buyLimit Failed to place order for symbol: %s %v", symbol.String(), err)
 		return
 	}
@@ -428,7 +434,7 @@ func (ct *CryptoTrader) liveClosePosition(accountInfo types.AccountInfo, symbol 
 	}
 	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
 
-	if _, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Sell, baseQuantity)); err != nil {
+	if _, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Sell, baseQuantity), nil); err != nil {
 		logger.Warningf("liveClosePosition Unable to close position for symbol: %s %v\n", symbolString, err)
 	}
 
