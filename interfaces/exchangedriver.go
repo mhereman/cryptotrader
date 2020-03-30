@@ -31,8 +31,11 @@ type IExchangeDriver interface {
 	// Ticker executes the ticker request
 	Ticker(context.Context, types.Symbol) (float64, error)
 
+	// GetSymbolInfo retrieves the symbol information for trading
+	GetSymbolInfo(context.Context, types.Symbol) (types.SymbolInfo, error)
+
 	// PlaceOrder executes the place order request
-	PlaceOrder(context.Context, types.Order) (types.OrderInfo, error)
+	PlaceOrder(context.Context, types.Order, *types.SymbolInfo) (types.OrderInfo, error)
 
 	// GetOrder executes the get order request
 	GetOrder(context.Context, types.Order) (types.OrderInfo, error)

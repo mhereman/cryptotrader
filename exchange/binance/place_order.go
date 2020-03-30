@@ -11,13 +11,14 @@ import (
 )
 
 // PlaceOrder executes the place order request
-func (b Binance) PlaceOrder(ctx context.Context, order types.Order) (info types.OrderInfo, err error) {
+func (b Binance) PlaceOrder(ctx context.Context, order types.Order, symbolInfo *types.SymbolInfo) (info types.OrderInfo, err error) {
 	var cos *bin.CreateOrderService
 	var binanceSymbol string
 	var response *bin.CreateOrderResponse
 	var numFills, index int
 	var fill *bin.Fill
 	var orderFills []types.OrderFill
+	var strPrice string
 
 	if binanceSymbol, err = b.symbolToBinance(order.Symbol); err != nil {
 		logger.Errorf("Binance::PlaceOrder Error %v\n", err)
@@ -34,29 +35,53 @@ func (b Binance) PlaceOrder(ctx context.Context, order types.Order) (info types.
 	case types.Limit:
 		cos.TimeInForce(b.timeInForceToBinance(order.TimeInForce))
 		cos.Quantity(fmt.Sprintf("%f", order.Quantity))
-		cos.Price(fmt.Sprintf("%f", order.Price))
+		if strPrice, err = symbolInfo.ClampPrice(order.Price); err != nil {
+			return
+		}
+		cos.Price(strPrice)
 	case types.Market:
 		cos.Quantity(fmt.Sprintf("%f", order.Quantity))
 	case types.StopLoss:
 		cos.Quantity(fmt.Sprintf("%f", order.Quantity))
-		cos.StopPrice(fmt.Sprintf("%f", order.StopPrice))
+		if strPrice, err = symbolInfo.ClampPrice(order.StopPrice); err != nil {
+			return
+		}
+		cos.StopPrice(strPrice)
 	case types.StopLossLimit:
 		cos.TimeInForce(b.timeInForceToBinance(order.TimeInForce))
 		cos.Quantity(fmt.Sprintf("%f", order.Quantity))
-		cos.StopPrice(fmt.Sprintf("%f", order.StopPrice))
-		cos.Price(fmt.Sprintf("%f", order.Price))
+		if strPrice, err = symbolInfo.ClampPrice(order.StopPrice); err != nil {
+			return
+		}
+		cos.StopPrice(strPrice)
+		if strPrice, err = symbolInfo.ClampPrice(order.Price); err != nil {
+			return
+		}
+		cos.Price(strPrice)
 	case types.TakeProfit:
 		cos.Quantity(fmt.Sprintf("%f", order.Quantity))
-		cos.StopPrice(fmt.Sprintf("%f", order.StopPrice))
+		if strPrice, err = symbolInfo.ClampPrice(order.StopPrice); err != nil {
+			return
+		}
+		cos.StopPrice(strPrice)
 	case types.TakeProfitLimit:
 		cos.TimeInForce(b.timeInForceToBinance(order.TimeInForce))
 		cos.Quantity(fmt.Sprintf("%f", order.Quantity))
-		cos.StopPrice(fmt.Sprintf("%f", order.StopPrice))
-		cos.Price(fmt.Sprintf("%f", order.Price))
+		if strPrice, err = symbolInfo.ClampPrice(order.StopPrice); err != nil {
+			return
+		}
+		cos.StopPrice(strPrice)
+		if strPrice, err = symbolInfo.ClampPrice(order.Price); err != nil {
+			return
+		}
+		cos.Price(strPrice)
 	case types.LimitMaker:
 		cos.TimeInForce(b.timeInForceToBinance(order.TimeInForce))
 		cos.Quantity(fmt.Sprintf("%f", order.Quantity))
-		cos.Price(fmt.Sprintf("%f", order.Price))
+		if strPrice, err = symbolInfo.ClampPrice(order.Price); err != nil {
+			return
+		}
+		cos.Price(strPrice)
 	}
 
 	if response, err = cos.Do(ctx); err != nil {
