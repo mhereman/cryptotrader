@@ -47,6 +47,7 @@ type Algorithm struct {
 	backtest      bool
 	seriesChannel types.SeriesChannel
 	signalChannel types.SignalChannel
+	lastBuyPrice  float64
 }
 
 // NewAlgorithm creates a new Ema/Sma algorithm
@@ -56,6 +57,7 @@ func NewAlgorithm() (a *Algorithm, err error) {
 		a = nil
 		return
 	}
+	a.lastBuyPrice = 0.0
 	return
 }
 
@@ -107,7 +109,7 @@ func (a *Algorithm) emit(signal types.Signal) {
 func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	var sma, ema, rsi []float64
 	//var open, close float64
-	var buySignal, sellSignal bool
+	var buySignal, sellSignal1, sellSignal2 bool
 	var calcSeries types.Series
 
 	calcSeries = series.SubSeries(0, series.Length()-1)
@@ -119,10 +121,12 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	//close = calcSeries.CurrentClose()
 
 	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax // && close > open
-	sellSignal = talib.Crossunder(ema, sma)
+	sellSignal1 = talib.Crossunder(ema, sma)
+	sellSignal2 = ema[len(ema)-3] > ema[len(ema)-2] && ema[len(ema)-2] > ema[len(ema)-1] && calcSeries.CurrentClose() > a.lastBuyPrice
 
 	if buySignal {
 		logger.Debugf("EMIT BUY")
+		a.lastBuyPrice = calcSeries.CurrentClose()
 		if a.backtest {
 			a.emit(types.NewBacktestSignal(name, series.Symbol, types.Buy, calcSeries.CurrentCandleTime()))
 		} else {
@@ -130,8 +134,9 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 		}
 	}
 
-	if sellSignal {
+	if sellSignal1 || sellSignal2 {
 		logger.Debugf("EMIT SELL")
+		a.lastBuyPrice = 0.0
 		if a.backtest {
 			a.emit(types.NewBacktestSignal(name, series.Symbol, types.Sell, calcSeries.CurrentCandleTime()))
 		} else {
