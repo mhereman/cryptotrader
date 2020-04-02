@@ -3,7 +3,6 @@ package cryptotrader
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/google/uuid"
@@ -233,7 +232,7 @@ func (ct *CryptoTrader) buyMarket(symbol types.Symbol, orderQuantity float64) (o
 		return
 	}
 	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
-	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+	baseQuantity = normalizeQuantity(baseQuantity)
 
 	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Buy, baseQuantity), nil); err != nil {
 		err = fmt.Errorf("buyMarket Failed to place order for symbol: %s %v", symbol.String(), err)
@@ -259,7 +258,7 @@ func (ct *CryptoTrader) buyLimit(symbol types.Symbol, orderQuantity float64) (or
 
 	limitPrice = marketPrice * (1.0 + ct.tradeCfg.MaxSlippage)
 	baseQuantity = orderQuantity / limitPrice
-	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+	baseQuantity = normalizeQuantity(baseQuantity)
 
 	if orderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewLimitOrder(symbol, types.Buy, types.ImmediateOrCancel, baseQuantity, limitPrice), &symbolInfo); err != nil {
 		err = fmt.Errorf("buyLimit Failed to place order for symbol: %s %v", symbol.String(), err)
@@ -283,12 +282,12 @@ func (ct *CryptoTrader) liveBuyFixed(accountInfo types.AccountInfo, symbol types
 
 	orderQuantity = ct.tradeCfg.Volume
 	freeQuantity, _ = accountInfo.GetAssetQuantity(symbol.Quote())
-	if (freeQuantity * 0.995) < orderQuantity {
+	if (freeQuantity * maxPctVolume) < orderQuantity {
 		if ct.tradeCfg.Reduce == false {
 			logger.Warningf("liveBuyFixed: Insufficient funds to initiate buy position for symbol %s (required: %f, available: %f)", symbolString, orderQuantity, (freeQuantity * 0.995))
 			return
 		}
-		orderQuantity = freeQuantity * 0.995
+		orderQuantity = freeQuantity * maxPctVolume
 	}
 
 	if ct.tradeCfg.MaxSlippage > 0.0 {
@@ -326,7 +325,7 @@ func (ct *CryptoTrader) paperBuyFixed(accountInfo types.AccountInfo, symbol type
 		return
 	}
 	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
-	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+	baseQuantity = normalizeQuantity(baseQuantity)
 
 	ct.openTrades[symbolString] = uuid.New().String()
 	logger.Infof("paperBuyFixed: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
@@ -348,7 +347,7 @@ func (ct *CryptoTrader) liveBuyPercent(accountInfo types.AccountInfo, symbol typ
 	}
 
 	freeQuantity, _ = accountInfo.GetAssetQuantity(symbol.Quote())
-	orderQuantity = freeQuantity * ct.tradeCfg.Volume * 0.995
+	orderQuantity = freeQuantity * ct.tradeCfg.Volume
 
 	if ct.tradeCfg.MaxSlippage > 0 {
 		orderInfo, price, err = ct.buyLimit(symbol, orderQuantity)
@@ -379,14 +378,14 @@ func (ct *CryptoTrader) paperBuyPercent(accountInfo types.AccountInfo, symbol ty
 	}
 
 	freeQuantity, _ = accountInfo.GetAssetQuantity(symbol.Quote())
-	orderQuantity = freeQuantity * ct.tradeCfg.Volume * 0.995
+	orderQuantity = freeQuantity * ct.tradeCfg.Volume
 
 	if orderBook, err = ct.exchangeDriver.GetOrderBook(ct.ctx, symbol); err != nil {
 		logger.Errorf("BuyPercent Failed to retrieve order book for symbol: %s %v\n", symbol.String(), err)
 		return
 	}
 	baseQuantity, averagePrice = orderBook.GetBuyVolumeAndAveragePrice(orderQuantity)
-	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+	baseQuantity = normalizeQuantity(baseQuantity)
 
 	ct.openTrades[symbolString] = uuid.New().String()
 	logger.Infof("paperBuyPercent: Buy %s [Amount: %f; Average Price: %f; UUID: %s]", symbolString, baseQuantity, averagePrice, ct.openTrades[symbolString])
@@ -432,7 +431,7 @@ func (ct *CryptoTrader) liveClosePosition(accountInfo types.AccountInfo, symbol 
 			baseQuantity -= trade.Commission
 		}
 	}
-	baseQuantity = math.Floor(baseQuantity*1000000) / 1000000
+	baseQuantity = normalizeQuantity(baseQuantity)
 
 	if _, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewMarketOrder(symbol, types.Sell, baseQuantity), nil); err != nil {
 		logger.Warningf("liveClosePosition Unable to close position for symbol: %s %v\n", symbolString, err)

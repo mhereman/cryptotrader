@@ -16,6 +16,8 @@ const (
 	TVTPercent
 )
 
+const maxPctVolume = 0.999
+
 // TradeVolumeTypeFromString creates a new TradeVolumeType from it's string representation
 func TradeVolumeTypeFromString(in string) (out TradeVolumeType, err error) {
 	switch strings.ToLower(in) {
@@ -64,8 +66,8 @@ func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool
 		return
 	}
 	if tc.TradeVolumeType == TVTPercent {
-		if volume > 1.0 {
-			volume = 1.0
+		if volume > maxPctVolume {
+			volume = maxPctVolume
 		}
 	}
 	tc.Volume = volume

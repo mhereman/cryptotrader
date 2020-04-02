@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
@@ -108,4 +109,9 @@ func showDonations() {
 		fmt.Printf("  %s: %s\n", option[0], option[1])
 	}
 	fmt.Println()
+}
+
+func normalizeQuantity(in float64) (out float64) {
+	out = math.Floor(in*1000000) / 1000000
+	return
 }
