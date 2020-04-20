@@ -122,7 +122,7 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	//close = calcSeries.CurrentClose()
 
 	downtrend_fakeout = sma[len(sma)-3] > sma[len(sma)-2] && sma[len(sma)-2] > sma[len(sma)-1] && math.Abs(calcSeries.CurrentClose()-calcSeries.CurrentOpen()) > atr[len(atr)-1]
-	downtrend_ema = (ema[len(ema)-1] - ema[len(ema)-2]) <= (atr[len(atr)-1] * 0.025)
+	downtrend_ema = (ema[len(ema)-1] - ema[len(ema)-2]) <= (atr[len(atr)-1] * -0.025)
 
 	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && !downtrend_fakeout && !downtrend_ema
 	sellSignal1 = talib.Crossunder(ema, sma)
