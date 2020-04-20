@@ -16,7 +16,7 @@ const (
 	TVTPercent
 )
 
-const maxPctVolume = 0.999
+const maxPctVolume = 0.998
 
 // TradeVolumeTypeFromString creates a new TradeVolumeType from it's string representation
 func TradeVolumeTypeFromString(in string) (out TradeVolumeType, err error) {
