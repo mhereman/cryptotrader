@@ -109,7 +109,7 @@ func (a *Algorithm) emit(signal types.Signal) {
 func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	var sma, ema, rsi, atr []float64
 	//var open, close float64
-	var downtrend_fakeout, downtrend_ema, buySignal, sellSignal1, sellSignal2 bool
+	var /*downtrend_fakeout, */ downtrend_ema, buySignal, sellSignal1, sellSignal2 bool
 	var calcSeries types.Series
 
 	calcSeries = series.SubSeries(0, series.Length()-1)
@@ -121,10 +121,10 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	//open = calcSeries.CurrentOpen()
 	//close = calcSeries.CurrentClose()
 
-	downtrend_fakeout = sma[len(sma)-3] > sma[len(sma)-2] && sma[len(sma)-2] > sma[len(sma)-1] && math.Abs(calcSeries.CurrentClose()-calcSeries.CurrentOpen()) > atr[len(atr)-1]
+	//downtrend_fakeout = sma[len(sma)-3] > sma[len(sma)-2] && sma[len(sma)-2] > sma[len(sma)-1] && math.Abs(calcSeries.CurrentClose()-calcSeries.CurrentOpen()) > atr[len(atr)-1]
 	downtrend_ema = (ema[len(ema)-1] - ema[len(ema)-2]) <= (atr[len(atr)-1] * -0.025)
 
-	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && !downtrend_fakeout && !downtrend_ema
+	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && /*!downtrend_fakeout &&*/ !downtrend_ema
 	sellSignal1 = talib.Crossunder(ema, sma)
 	sellSignal2 = ema[len(ema)-3] > ema[len(ema)-2] && ema[len(ema)-2] > ema[len(ema)-1] && calcSeries.CurrentClose() > a.lastBuyPrice
 
