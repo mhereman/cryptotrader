@@ -23,6 +23,7 @@ const (
 	cfgEmaLen    = "Ema/Sma.ema_len"
 	cfgRsiLen    = "Ema/Sma.rsi_len"
 	cfgRsiBuyMax = "Ema/Sma.rsi_buy_max"
+	cfgRsiSell   = "Ema/Sma.rsi_sell"
 	cfgBacktest  = "Ema/Sma.backtest"
 )
 
@@ -30,7 +31,8 @@ var defaultConfig types.AlgorithmConfig = types.AlgorithmConfig{
 	cfgSmaLen:    "15",
 	cfgEmaLen:    "7",
 	cfgRsiLen:    "14",
-	cfgRsiBuyMax: "90.0",
+	cfgRsiBuyMax: "70.0",
+	cfgRsiSell:   "90.0",
 	cfgBacktest:  "false",
 }
 
@@ -44,6 +46,7 @@ type Algorithm struct {
 	emaLen        int
 	rsiLen        int
 	rsiBuyMax     float64
+	rsiSell       float64
 	backtest      bool
 	seriesChannel types.SeriesChannel
 	signalChannel types.SignalChannel
@@ -83,6 +86,7 @@ func (a Algorithm) Config() types.AlgorithmConfig {
 		cfgEmaLen:    fmt.Sprintf("%d", a.emaLen),
 		cfgRsiLen:    fmt.Sprintf("%d", a.rsiLen),
 		cfgRsiBuyMax: fmt.Sprintf("%f", a.rsiBuyMax),
+		cfgRsiSell:   fmt.Sprintf("%f", a.rsiSell),
 		cfgBacktest:  fmt.Sprintf("%t", a.backtest),
 	}
 }
@@ -107,9 +111,8 @@ func (a *Algorithm) emit(signal types.Signal) {
 }
 
 func (a *Algorithm) check(ctx context.Context, series types.Series) {
-	var sma, ema, rsi, atr []float64
-	//var open, close float64
-	var /*downtrend_fakeout, */ downtrend_ema, buySignal, sellSignal1, sellSignal2 bool
+	var sma, ema, rsi []float64
+	var buySignal, sellSignal1, sellSignal2, sellSignal3 bool
 	var calcSeries types.Series
 
 	calcSeries = series.SubSeries(0, series.Length()-1)
@@ -117,16 +120,11 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	sma = talib.Sma(calcSeries.Close(), a.smaLen)
 	ema = talib.Ema(calcSeries.Close(), a.emaLen)
 	rsi = talib.Rsi(calcSeries.Close(), a.rsiLen)
-	atr = talib.Atr(calcSeries.High(), calcSeries.Low(), calcSeries.Close(), a.smaLen)
-	//open = calcSeries.CurrentOpen()
-	//close = calcSeries.CurrentClose()
 
-	//downtrend_fakeout = sma[len(sma)-3] > sma[len(sma)-2] && sma[len(sma)-2] > sma[len(sma)-1] && math.Abs(calcSeries.CurrentClose()-calcSeries.CurrentOpen()) > atr[len(atr)-1]
-	downtrend_ema = (ema[len(ema)-1] - ema[len(ema)-2]) <= (atr[len(atr)-1] * -0.025)
-
-	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && /*!downtrend_fakeout &&*/ !downtrend_ema
+	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax
 	sellSignal1 = talib.Crossunder(ema, sma)
 	sellSignal2 = ema[len(ema)-3] > ema[len(ema)-2] && ema[len(ema)-2] > ema[len(ema)-1] && calcSeries.CurrentClose() > a.lastBuyPrice
+	sellSignal3 = rsi[len(rsi)-2] > a.rsiSell && rsi[len(rsi)-1] <= a.rsiSell
 
 	if buySignal {
 		logger.Debugf("EMIT BUY")
@@ -138,7 +136,7 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 		}
 	}
 
-	if sellSignal1 || sellSignal2 {
+	if sellSignal1 || sellSignal2 || sellSignal3 {
 		logger.Debugf("EMIT SELL")
 		a.lastBuyPrice = 0.0
 		if a.backtest {
@@ -179,6 +177,10 @@ func (a *Algorithm) configure(config types.AlgorithmConfig) (err error) {
 			}
 		case cfgRsiBuyMax:
 			if a.rsiBuyMax, err = strconv.ParseFloat(value, 64); err != nil {
+				return
+			}
+		case cfgRsiSell:
+			if a.rsiSell, err = strconv.ParseFloat(value, 64); err != nil {
 				return
 			}
 		case cfgBacktest:

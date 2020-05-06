@@ -15,7 +15,7 @@ import (
 
 func ReadFlags() (assetCfg AssetConfig, exchangeCfg ExchangeConfig, algoConfig AlgorithmConfig, tradeConfig TradeConfig, notifierConfig NotifierConfig, err error) {
 	var base, quote, timeFrame, exchange, exchangeArgsString, algo, algoConfigString, tradeType, logLevel, notifier, notifierConfigString *string
-	var volume, maxSlippage *float64
+	var volume, maxSlippage, stopLoss *float64
 	var reduce, paperTrading *bool
 
 	base = flag.String("base", "btc", "Base asset to trade")
@@ -33,6 +33,7 @@ func ReadFlags() (assetCfg AssetConfig, exchangeCfg ExchangeConfig, algoConfig A
 	reduce = flag.Bool("reduce", true, "Reduce the trade volume if not sufficient funds are available")
 	paperTrading = flag.Bool("papertrading", false, "Papertrading enabled or not")
 	maxSlippage = flag.Float64("maxslippage", 0.001, "Max slippage on buy orders; if set to 0 no max slippage is configured. Sell orders are always market orders.")
+	stopLoss = flag.Float64("stoploss", 0.05, "Stop loss percentage")
 
 	logLevel = flag.String("loglevel", "info", "Log leve to use, valid (most verbose to less): ['debug', 'error', warning', 'info', 'none'")
 
@@ -55,7 +56,7 @@ func ReadFlags() (assetCfg AssetConfig, exchangeCfg ExchangeConfig, algoConfig A
 		return
 	}
 
-	if tradeConfig, err = NewTradeConfigFromFlags(*tradeType, *volume, *reduce, *paperTrading, *maxSlippage); err != nil {
+	if tradeConfig, err = NewTradeConfigFromFlags(*tradeType, *volume, *reduce, *paperTrading, *maxSlippage, *stopLoss); err != nil {
 		return
 	}
 

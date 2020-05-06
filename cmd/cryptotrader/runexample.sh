@@ -47,7 +47,7 @@ ALGO='Ema/Sma'
 # Ema/Sma.ema_len = 7
 # Ema/Sma.rsi_len = 14
 # Ema/Sma.rsi_buy_max = 90.0
-ALGO_ARGS='Ema/Sma.sma_len=14;Ema/Sma.ema_len=7;Ema/Sma.rsi_len=14;Ema/Sma.rsi_buy_max=90.0;Ema/Sma.backtest=false'
+ALGO_ARGS='Ema/Sma.sma_len=14;Ema/Sma.ema_len=7;Ema/Sma.rsi_len=14;Ema/Sma.rsi_buy_max=70.0;Ema/Sma.rsi_sell=90.0;Ema/Sma.backtest=false'
 
 
 # Trade Configuration
@@ -74,6 +74,9 @@ PAPER_TRADING='true'
 # Max slippage on buy orders
 # Use 0 to disable
 MAX_SLIPPAGE='0.001'
+
+# Stop loss pct
+STOP_LOSS='0.05'
 
 
 
@@ -106,5 +109,6 @@ cryptotrader \
     -reduce=${REDUCE} \
     -papertrading=${PAPER_TRADING} \
     -maxslippage=${MAX_SLIPPAGE} \
+    -stoploss=${STOP_LOSS} \
     -notifier=${NOTIFIER} \
     -notifierargs=${NOTIFIER_CONFIG}
