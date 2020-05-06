@@ -58,10 +58,13 @@ type TradeConfig struct {
 	// Max slippage in percent
 	// 0.1% = 0.001
 	MaxSlippage float64
+
+	// Stop loss un percent
+	StopLoss float64
 }
 
 // NewTradeConfigFromFlags creates a new TradeConfig insance from the cmdline argument values
-func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool, maxSlippage float64) (tc TradeConfig, err error) {
+func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool, maxSlippage float64, stopLoss float64) (tc TradeConfig, err error) {
 	if tc.TradeVolumeType, err = TradeVolumeTypeFromString(tvt); err != nil {
 		return
 	}
@@ -74,5 +77,6 @@ func NewTradeConfigFromFlags(tvt string, volume float64, reduce bool, paper bool
 	tc.Reduce = reduce
 	tc.Paper = paper
 	tc.MaxSlippage = maxSlippage
+	tc.StopLoss = stopLoss
 	return
 }
