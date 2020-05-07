@@ -22,6 +22,7 @@ const (
 	cfgSmaLen    = "Ema/Sma.sma_len"
 	cfgEmaLen    = "Ema/Sma.ema_len"
 	cfgRsiLen    = "Ema/Sma.rsi_len"
+	cfgRsiBuyMin = "Ema/Sma.rsi_buy_min"
 	cfgRsiBuyMax = "Ema/Sma.rsi_buy_max"
 	cfgRsiSell   = "Ema/Sma.rsi_sell"
 	cfgBacktest  = "Ema/Sma.backtest"
@@ -31,6 +32,7 @@ var defaultConfig types.AlgorithmConfig = types.AlgorithmConfig{
 	cfgSmaLen:    "15",
 	cfgEmaLen:    "7",
 	cfgRsiLen:    "14",
+	cfgRsiBuyMin: "51.0",
 	cfgRsiBuyMax: "70.0",
 	cfgRsiSell:   "90.0",
 	cfgBacktest:  "false",
@@ -45,6 +47,7 @@ type Algorithm struct {
 	smaLen        int
 	emaLen        int
 	rsiLen        int
+	rsiBuyMin     float64
 	rsiBuyMax     float64
 	rsiSell       float64
 	backtest      bool
@@ -85,6 +88,7 @@ func (a Algorithm) Config() types.AlgorithmConfig {
 		cfgSmaLen:    fmt.Sprintf("%d", a.smaLen),
 		cfgEmaLen:    fmt.Sprintf("%d", a.emaLen),
 		cfgRsiLen:    fmt.Sprintf("%d", a.rsiLen),
+		cfgRsiBuyMin: fmt.Sprintf("%d", a.rsiBuyMin),
 		cfgRsiBuyMax: fmt.Sprintf("%f", a.rsiBuyMax),
 		cfgRsiSell:   fmt.Sprintf("%f", a.rsiSell),
 		cfgBacktest:  fmt.Sprintf("%t", a.backtest),
@@ -121,7 +125,7 @@ func (a *Algorithm) check(ctx context.Context, series types.Series) {
 	ema = talib.Ema(calcSeries.Close(), a.emaLen)
 	rsi = talib.Rsi(calcSeries.Close(), a.rsiLen)
 
-	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax
+	buySignal = talib.Crossover(ema, sma) && rsi[len(rsi)-1] < a.rsiBuyMax && rsi[len(rsi)-1] >= a.rsiBuyMin
 	sellSignal1 = talib.Crossunder(ema, sma)
 	sellSignal2 = ema[len(ema)-3] > ema[len(ema)-2] && ema[len(ema)-2] > ema[len(ema)-1] && calcSeries.CurrentClose() > a.lastBuyPrice
 	sellSignal3 = rsi[len(rsi)-2] > a.rsiSell && rsi[len(rsi)-1] <= a.rsiSell
@@ -173,6 +177,10 @@ func (a *Algorithm) configure(config types.AlgorithmConfig) (err error) {
 			}
 		case cfgRsiLen:
 			if a.rsiLen, err = strconv.Atoi(value); err != nil {
+				return
+			}
+		case cfgRsiBuyMin:
+			if a.rsiBuyMin, err = strconv.ParseFloat(value, 64); err != nil {
 				return
 			}
 		case cfgRsiBuyMax:

@@ -47,7 +47,7 @@ ALGO='Ema/Sma'
 # Ema/Sma.ema_len = 7
 # Ema/Sma.rsi_len = 14
 # Ema/Sma.rsi_buy_max = 90.0
-ALGO_ARGS='Ema/Sma.sma_len=14;Ema/Sma.ema_len=7;Ema/Sma.rsi_len=14;Ema/Sma.rsi_buy_max=70.0;Ema/Sma.rsi_sell=90.0;Ema/Sma.backtest=false'
+ALGO_ARGS='Ema/Sma.sma_len=14;Ema/Sma.ema_len=7;Ema/Sma.rsi_len=14;Ema/Sma.rsi_buy_min=51.0;Ema/Sma.rsi_buy_max=70.0;Ema/Sma.rsi_sell=90.0;Ema/Sma.backtest=false'
 
 
 # Trade Configuration
