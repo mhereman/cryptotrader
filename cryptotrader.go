@@ -228,7 +228,7 @@ func (ct *CryptoTrader) executeSignal(signal types.Signal) (err error) {
 
 func (ct *CryptoTrader) buyMarket(symbol types.Symbol, orderQuantity float64) (orderInfo types.OrderInfo, stopOrderInfo types.OrderInfo, averagePrice float64, err error) {
 	var orderBook types.OrderBook
-	var baseQuantity float64
+	var baseQuantity, stopLoss, stopLossLimit float64
 	var symbolInfo types.SymbolInfo
 
 	if symbolInfo, err = ct.exchangeDriver.GetSymbolInfo(ct.ctx, symbol); err != nil {
@@ -248,7 +248,9 @@ func (ct *CryptoTrader) buyMarket(symbol types.Symbol, orderQuantity float64) (o
 		return
 	}
 
-	if stopOrderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewStopLossOrder(symbol, types.Sell, orderInfo.ExecutedQuantity, averagePrice*(1.0-ct.tradeCfg.StopLoss)), &symbolInfo); err != nil {
+	stopLoss = averagePrice * (1.0 - ct.tradeCfg.StopLoss)
+	stopLossLimit = stopLoss * (1.0 - ct.tradeCfg.MaxSlippage)
+	if stopOrderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewStopLossLimitOrder(symbol, types.Sell, orderInfo.ExecutedQuantity, stopLoss, stopLossLimit), &symbolInfo); err != nil {
 		err = fmt.Errorf("buyLimit Failed to place stop loss for symbol: %s %v", symbol.String(), err)
 		return
 	}
@@ -258,6 +260,7 @@ func (ct *CryptoTrader) buyMarket(symbol types.Symbol, orderQuantity float64) (o
 
 func (ct *CryptoTrader) buyLimit(symbol types.Symbol, orderQuantity float64) (orderInfo types.OrderInfo, stopOrderInfo types.OrderInfo, limitPrice float64, err error) {
 	var marketPrice, baseQuantity float64
+	var stopLossLimit, stopLoss float64
 	var symbolInfo types.SymbolInfo
 
 	if symbolInfo, err = ct.exchangeDriver.GetSymbolInfo(ct.ctx, symbol); err != nil {
@@ -279,7 +282,9 @@ func (ct *CryptoTrader) buyLimit(symbol types.Symbol, orderQuantity float64) (or
 		return
 	}
 
-	if stopOrderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewStopLossOrder(symbol, types.Sell, orderInfo.ExecutedQuantity, limitPrice*(1.0-ct.tradeCfg.StopLoss)), &symbolInfo); err != nil {
+	stopLoss = limitPrice * (1.0 - ct.tradeCfg.StopLoss)
+	stopLossLimit = stopLoss * (1.0 - ct.tradeCfg.MaxSlippage)
+	if stopOrderInfo, err = ct.exchangeDriver.PlaceOrder(ct.ctx, types.NewStopLossLimitOrder(symbol, types.Sell, orderInfo.ExecutedQuantity, stopLoss, stopLossLimit), &symbolInfo); err != nil {
 		err = fmt.Errorf("buyLimit Failed to place stop loss for symbol: %s %v", symbol.String(), err)
 		return
 	}
