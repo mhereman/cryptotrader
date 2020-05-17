@@ -32,7 +32,7 @@ var defaultConfig types.AlgorithmConfig = types.AlgorithmConfig{
 	cfgSmaLen:    "15",
 	cfgEmaLen:    "7",
 	cfgRsiLen:    "14",
-	cfgRsiBuyMin: "51.0",
+	cfgRsiBuyMin: "45.0",
 	cfgRsiBuyMax: "70.0",
 	cfgRsiSell:   "90.0",
 	cfgBacktest:  "false",
